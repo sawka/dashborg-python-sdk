@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="dashborg-python-sdk-dashborg", # Replace with your own username
+    name="dashborg-python-sdk",
     version="0.0.1.dev1",
     author="Michael Sawka",
     author_email="mike@dashborg.net",

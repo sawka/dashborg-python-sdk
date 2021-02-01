@@ -6,3 +6,5 @@ env/
 *.txt
 !requirements.txt
 *.egg-info/
+dist/
+build/

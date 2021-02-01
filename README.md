@@ -1,11 +1,11 @@
 # Dashborg Python SDK
 
-Modern internal tools defined, controlled, and deployed directly from backend code.  No JavaScript.
+Modern internal tools.  Defined, controlled, and deployed directly from backend code.  No JavaScript.  Secure.
 * Define your UI in HTML
 * Define handlers in Go/Python
 * Run your program to deploy your app
 
-Dashborg was built to be the simplest way to create web-based internal tools from backend code.  Define your UI and interact with it *completely* within your backend code.  You get a fully hosted dashboard, without all of the overhead of messing with JavaScript, Babel, Webpack, React/Angular/Vue, UI frameworks, UI component libraries, Web Hosting, Load Balancing, HTTPS/Security/WAF, and User Accounts and Permissions.
+Dashborg was built to be the simplest way to create secure web-based internal tools from backend code.  Define your UI and control it *completely* within your backend code.  All backend communication is secured with public/private key encryption.  Add client password or user-account authentication with one line of code.
 
 ## Documentation
 
@@ -19,7 +19,7 @@ Dashborg was built to be the simplest way to create web-based internal tools fro
 * **No Open Ports** - No webhooks, firewall configuration, IP whitelists, or open ports required for your backend.
 * **No Frontend Hosting** - You get a secure, internet accessible frontend out of the box.  No web server configuration, domain name, load balancer, or WAF setup and configuration required.
 * **No Shared Passwords** - No incoming connections to your infrastructure.  Dashborg does not require or store your database passwords or API keys.  It does not access any 3rd party service on your behalf.
-* **Built For Real Developers** - Use the editor, library, and frameworks that you already use to write your tools -- no 3rd-party GUI tools to learn, or typing code into text boxes on a website.  Easy to get started, but powerful enough to build complex tools and interactions.
+* **Built For Real Developers** - Use the editor, libraries, and frameworks that you already use to write your tools -- no 3rd-party GUI tools to learn, or typing code into text boxes on a website.  Easy to get started, but powerful enough to build complex tools and interactions.
 * **Secure** - All connections are secured using SSL public/private key encryption with client auth.  HTTPS on the frontend.  Secure your dashboards with a simple password or user accounts.  SSO coming soon.
 * **Control** - Dashborg panels are 100% defined from your backend code.  That means you can version them in your own code repository, and run and test them in your current dev, staging, and production environments.
 * **Modern Frontend Controls** - Tables, Lists, Forms, Inputs, and Buttons all out of the box, with more to come!  No Javascript or CSS frameworks required.  All styled to look good and work together.
@@ -63,6 +63,8 @@ Dashborg Panel Link [default]: https://console.dashborg.net/acc/YOUR-OWN-PRIVATE
 </pre>
 
 Copy and paste your panel link (console.dashborg.net) into your browser to see your live dashboard!
+
+Questions?  [Join the Dashborg Slack Channel](https://join.slack.com/t/dashborgworkspace/shared_invite/zt-ls710ixw-nHmCAFiOQqzal2mu0r_87w)
 
 
 
