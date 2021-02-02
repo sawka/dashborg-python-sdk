@@ -75,7 +75,7 @@ class _HandlerVal:
         self.proto_hkey = proto_hkey
 
 class Config:
-    def __init__(self, acc_id=None, anon_acc=None, zone_name=None, proc_name=None, proc_tags=None, key_file_name=None, cert_file_name=None, auto_keygen=None, min_clear_timeout_ms=None, verbose=None, env=None, dashborg_srv_host=None, dashborg_srv_port=None, use_logger=False):
+    def __init__(self, acc_id=None, anon_acc=None, zone_name=None, proc_name=None, proc_tags=None, key_file_name=None, cert_file_name=None, auto_keygen=None, verbose=None, env=None, dashborg_srv_host=None, dashborg_srv_port=None, use_logger=False):
         self.acc_id = acc_id
         self.anon_acc = anon_acc
         self.zone_name = zone_name
@@ -84,7 +84,6 @@ class Config:
         self.key_file_name = key_file_name
         self.cert_file_name = cert_file_name
         self.auto_keygen = auto_keygen
-        self.min_clear_timeout_ms = min_clear_timeout_ms
         self.verbose = verbose
         self.env = env
         self.dashborg_srv_host = dashborg_srv_host
@@ -113,8 +112,6 @@ class Config:
         self.cert_file_name = _default_string(self.cert_file_name, os.environ.get("DASHBORG_CERTFILE"), TLS_CERT_FILENAME)
         if os.environ.get("DASHBORG_VERBOSE") is not None:
             self.verbose = True
-        if self.min_clear_timeout_ms is None:
-            self.min_clear_timeout_ms = 1000
         if os.environ.get("DASHBORG_USELOGGER") is not None:
             self.use_logger = True
 
@@ -332,9 +329,9 @@ class Client:
         self.conn = None
         self.db_service = None
 
-    async def _wait_for_clear(self):
-        await asyncio.sleep(self.config.min_clear_timeout_ms / 1000.0)
-        # self.conn.close()
+    async def _wait_for_clear(self, wait_time=1.0):
+        self.conn.close()
+        await asyncio.sleep(wait_time)
 
     async def _connect_grpc(self):
         if self.conn is not None:
@@ -387,15 +384,15 @@ class Client:
             rtn = await self.db_service.Proc(proc_msg)
             if rtn.Success:
                 self.conn_id = rtn.ConnId
-                log_info_config(self.config, f"Dashborg ProcClient connected connid:{self.conn_id}")
+                _log_info_config(self.config, f"Dashborg ProcClient connected connid:{self.conn_id}")
             else:
-                log_error(f"Dashborg Error calling Proc(), err:{rtn.Err} code:{rtn.ErrCode}")
+                _log_error(f"Dashborg Error calling Proc(), err:{rtn.Err} code:{rtn.ErrCode}")
                 self.conn_id = None
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                log_error(f"Dashborg service unavailable: {e.details()}")
+                _log_error(f"Dashborg service unavailable: {e.details()}")
             else:
-                log_error(f"Dashborg Error calling Proc() {e}")
+                _log_error(f"Dashborg Error calling Proc() {e}")
             self.conn_id = None
 
     async def _run_request_stream_loop(self):
@@ -404,22 +401,22 @@ class Client:
         while True:
             s = self.conn.get_state()
             if s == grpc.ChannelConnectivity.SHUTDOWN:
-                log_info(f"Dashborg stopping request loop, channel shutdown")
+                _log_info(f"Dashborg stopping request loop, channel shutdown")
                 return
             if s == grpc.ChannelConnectivity.CONNECTING or s == grpc.ChannelConnectivity.TRANSIENT_FAILURE:
-                log_info(f"Dashborg waiting for gRPC connection")
+                _log_info(f"Dashborg waiting for gRPC connection")
                 await asyncio.sleep(1)
                 needs_wait = False
                 continue
             if needs_wait:
-                log_info(f"Dashborg run_request_stream_loop needs_wait")
+                _log_info(f"Dashborg run_request_stream_loop needs_wait")
                 await asyncio.sleep(1)
             if self.conn_id == None:
                 await self._send_proc_message()
                 needs_wait = (self.conn_id is None)
                 continue
             ec = await self._run_request_stream()
-            log_info(f"Dashborg run_request_stream finished ec:{ec}")
+            _log_info(f"Dashborg run_request_stream finished ec:{ec}")
             if ec == EC_BADCONNID:
                 self.conn_id = None
                 continue
@@ -427,9 +424,9 @@ class Client:
 
     async def _dispatch_request(self, req_msg):
         if req_msg.Err is not None and req_msg.Err != "":
-            log_info(f"Dashborg dispatch_request got error request err:{req_msg.Err}")
+            _log_info(f"Dashborg dispatch_request got error request err:{req_msg.Err}")
             return
-        log_info(f"Dashborg gRPC got request panel={req_msg.PanelName}, type={req_msg.RequestType}, path={req_msg.Path}")
+        _log_info(f"Dashborg gRPC got request panel={req_msg.PanelName}, type={req_msg.RequestType}, path={req_msg.Path}")
         preq = PanelRequest(req_msg)
         hkey = _make_handler_key(req_msg)
         hval = self.handler_map.get(hkey)
@@ -453,7 +450,7 @@ class Client:
                     await preq.done()
                     return
         except json.JSONDecodeError as e:
-            log_info(f"Cannot json.loads request data err:{e}")
+            _log_info(f"Cannot json.loads request data err:{e}")
         try:
             rtnval = None
             if inspect.iscoroutinefunction(hval.handler_fn):
@@ -473,7 +470,7 @@ class Client:
 
     async def _run_request_stream(self):
         try:
-            log_info("Dashborg gRPC RequestStream starting")
+            _log_info("Dashborg gRPC RequestStream starting")
             stream_msg = dborgproto_pb2.RequestStreamMessage(Ts=dashts())
             conn_meta = (("dashborg-connid", self.conn_id),)
             msgs = self.db_service.RequestStream(stream_msg, metadata=conn_meta)
@@ -482,25 +479,25 @@ class Client:
             async for msg in msgs:
                 if msg.ErrCode == dborgproto_pb2.EC_BADCONNID:
                     ending_ec = EC_BADCONNID
-                    log_info("Dashborg gRPC RequestStream BADCONNID")
+                    _log_info("Dashborg gRPC RequestStream BADCONNID")
                     break
                 if msg.Err is not None and msg.Err != "":
                     ending_ec = EC_UNKNOWN
-                    log_info(f"Dashborg gRPC RequestStrem error:{msg.Err} code:{msg.ErrCode}")
+                    _log_info(f"Dashborg gRPC RequestStrem error:{msg.Err} code:{msg.ErrCode}")
                     break
                 req_counter += 1
                 asyncio.create_task(self._dispatch_request(msg))
             if ending_ec is None:
-                log_info("Dashborg gRPC RequestStream end of iteration")
+                _log_info("Dashborg gRPC RequestStream end of iteration")
                 return EC_EOF
             return ending_ec
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
                 return EC_UNAVAILABLE
-            log_info(f"Dashborg gRPC error {e}")
+            _log_info(f"Dashborg gRPC error {e}")
             return EC_UNKNOWN
         finally:
-            log_info("Dashborg gRPC RequestStream done")
+            _log_info("Dashborg gRPC RequestStream done")
 
     async def _register_handler(self, proto_hkey, handler_fn):
         path = None if proto_hkey.Path == "" else proto_hkey.Path
@@ -514,11 +511,11 @@ class Client:
         try:
             resp = await self.db_service.RegisterHandler(msg, metadata=conn_meta)
             if resp.Err is not None and resp.Err != "":
-                log_error(f"Dashborg RegisterHandler error:{resp.Err} code:{resp.ErrCode}")
+                _log_error(f"Dashborg RegisterHandler error:{resp.Err} code:{resp.ErrCode}")
                 return
-            log_info(f"Dashborg RegisterHandler Success {hkey}")
+            _log_info(f"Dashborg RegisterHandler Success {hkey}")
         except grpc.RpcError as e:
-            log_error(f"Dashborg RegisterHandler Error-rpc: {e}")
+            _log_error(f"Dashborg RegisterHandler Error-rpc: {e}")
 
     async def _send_request_response(self, req, done):
         if self.conn_id is None:
@@ -536,9 +533,9 @@ class Client:
         try:
             resp = await self.db_service.SendResponse(msg, metadata=conn_meta)
             if resp.Err is not None and resp.Err != "":
-                log_error(f"Dashborg SendResponse error:{resp.Err}")
+                _log_error(f"Dashborg SendResponse error:{resp.Err}")
         except grpc.RpcError as e:
-            log_error(f"Dashborg SendResponse gRPC error:{e}")
+            _log_error(f"Dashborg SendResponse gRPC error:{e}")
 
 
 async def start_proc_client(config):
@@ -551,10 +548,11 @@ async def start_proc_client(config):
     global _global_client
     _global_client = client
     asyncio.create_task(client._run_request_stream_loop())
+    return
 
-async def wait_for_clear():
+async def _wait_for_clear(wait_time=1.0):
     if _global_client is not None:
-        await _global_client._wait_for_clear()
+        await _global_client._wait_for_clear(wait_time)
 
 def panel_link(panel_name):
     acc_id = _global_client.config.acc_id
@@ -588,7 +586,7 @@ async def register_panel_class(panel_name, obj):
         elif firstparam == "datareq":
             await register_data_handler(panel_name, "/" + name, m)
 
-def log_info(*args):
+def _log_info(*args):
     if _global_client is None:
         return
     if _global_client.config.use_logger:
@@ -596,7 +594,7 @@ def log_info(*args):
     elif _global_client.config.verbose:
         print(*args)
 
-def log_info_config(config, *args):
+def _log_info_config(config, *args):
     if config is None:
         return
     if config.use_logger:
@@ -604,7 +602,7 @@ def log_info_config(config, *args):
     elif config.verbose:
         print(*args)
 
-def log_error(*args):
+def _log_error(*args):
     if _global_client is not None and _global_client.config.use_logger:
         _dblogger.error(*args)
     else:
