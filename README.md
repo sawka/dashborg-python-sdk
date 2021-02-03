@@ -11,6 +11,7 @@ Dashborg was built to be the simplest way to create secure web-based internal to
 
 * Doc Site: https://docs.dashborg.net/
 * Tutorials: https://docs.dashborg.net/tutorials/t1/
+* SDK Reference: https://docs.dashborg.net/reference/python-reference/
 * Playground: https://console.dashborg.net/acc/421d595f-9e30-4178-bcc3-b853f890fb8e/default/playground
 * Slack: [Join the Dashborg Slack Channel](https://join.slack.com/t/dashborgworkspace/shared_invite/zt-ls710ixw-nHmCAFiOQqzal2mu0r_87w)
 
@@ -44,7 +45,7 @@ async def root_handler(req):
     req.set_html("<panel><h1>Hello World</h1></panel>")
 
 async def main():
-    config = dashborg.Config(proc_name="demo", anon_acc=True)
+    config = dashborg.Config(proc_name="demo", anon_acc=True, auto_keygen=True)
     await dashborg.start_proc_client(config)
     await dashborg.register_panel_handler("default", "/", root_handler)
     while True:
