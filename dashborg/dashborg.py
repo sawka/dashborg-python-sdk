@@ -571,21 +571,6 @@ async def register_panel_handler(panel_name, path, handler_fn):
     if path == "/":
         print(f"Dashborg Panel Link [{panel_name}]: {panel_link(panel_name)}")
 
-async def register_panel_class(panel_name, obj):
-    methods = inspect.getmembers(obj, inspect.ismethod)
-    for (name, m) in methods:
-        sig = inspect.signature(m)
-        if len(sig.parameters) != 1:
-            continue
-        firstparam = next(iter(sig.parameters))
-        if firstparam == "req":
-            if name == "root_handler":
-                await register_panel_handler(panel_name, "/", m)
-            else:
-                await register_panel_handler(panel_name, "/" + name, m)
-        elif firstparam == "datareq":
-            await register_data_handler(panel_name, "/" + name, m)
-
 def _log_info(*args):
     if _global_client is None:
         return
