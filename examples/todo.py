@@ -7,7 +7,6 @@ class TodoModel:
         self.next_id = 1
 
     async def root_handler(self, req):
-        req.no_auth()
         await req.set_html_from_file("examples/todo.html")
         return
 

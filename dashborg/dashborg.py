@@ -202,7 +202,7 @@ class PanelRequest:
         if self.is_done:
             return
         if not self.auth_impl and self._is_root_req():
-            self.no_auth()
+            self._append_panelauth_rraction("noauth", "user")
         await _global_client._send_request_response(self, True)
 
     def _append_rr(self, rr):
@@ -221,42 +221,34 @@ class PanelRequest:
         raw_auth = self.auth_data
         return raw_auth is not None and len(raw_auth) > 0
 
-    def no_auth(self):
+    def check_auth(self, *, none=False, password=None, dashborg=False):
         self.auth_impl = True
-        if not self._is_authenticated():
+        if self._is_authenticated():
+            return True
+        # check auths
+        if none:
             self._append_panelauth_rraction("noauth", "user")
-
-    def dashborg_auth(self):
-        self.auth_impl = True
-        if self._is_authenticated():
-            return True
-        challenge = {"allowedauth": "dashborg"}
-        self._append_panelauth_challenge(challenge)
-        return False
-
-    def password_auth(self, pw):
-        self.auth_impl = True
-        if self._is_authenticated():
-            return True
-        # check challenge-data
+            return
         challengedata = self.data.get("challengedata") if type(self.data) is dict else None
-        if challengedata is not None and challengedata.get("password") == pw:
-            self._append_panelauth_rraction("password", "user")
-            return True
-
-        # send challenge
-        challenge = {"allowedauth": "challenge,dashborg"}
-        cfield = {"label": "Panel Password", "name": "password", "type": "password"}
-        challenge["challengefields"] = [cfield]
-        if challengedata is not None and challengedata.get("submitted") == "1":
-            chpw = challengedata.get("password")
-            if chpw is None or chpw == "":
-                challenge["challengeerror"] = "Password cannot be blank"
-            else:
-                challenge["challengeerror"] = "Invalid Password"
-        self._append_panelauth_challenge(challenge)
+        if password is not None:
+            if challengedata is not None and challengedata.get("password") == password:
+                self._append_panelauth_rraction("password", "user")
+                return True
+        # add challenges
+        if dashborg:
+            self._append_panelauth_challenge({"allowedauth": "dashborg"})
+        if password is not None:
+            ch = {"allowedauth": "challenge"}
+            ch["challengefields"] = [{"label": "Panel Password", "name": "password", "type": "password"}]
+            if challengedata is not None and challengedata.get("submitted") == "1":
+                chpw = challengedata.get("password")
+                if chpw is None or chpw == "":
+                    ch["challengeerror"] = "Password cannot be blank"
+                else:
+                    ch["challengeerror"] = "Invalid Password"
+            self._append_panelauth_challenge(ch)
         return False
-
+        
     def _append_panelauth_rraction(self, authtype, authrole):
         ts = dashts() + (24 * 60 * 60 * 1000)
         aa = {"type": authtype, "auto": True, "ts": ts, "role": authrole}
