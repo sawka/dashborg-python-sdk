@@ -41,7 +41,6 @@ import asyncio
 import dashborg
 
 async def root_handler(req):
-    req.no_auth()
     req.set_html("<panel><h1>Hello World</h1></panel>")
 
 async def main():
