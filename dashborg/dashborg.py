@@ -201,7 +201,7 @@ class PanelRequest:
     async def done(self):
         if self.is_done:
             return
-        if not self.auth_impl and self._is_root_req():
+        if not self.auth_impl and self._is_root_req() and self.err is None:
             self._append_panelauth_rraction("noauth", "user")
         await _global_client._send_request_response(self, True)
 
