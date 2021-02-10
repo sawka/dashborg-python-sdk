@@ -41,12 +41,21 @@ import asyncio
 import dashborg
 
 async def root_handler(req):
-    req.set_html("<panel><h1>Hello World</h1></panel>")
+    req.set_html("""
+        <panel>
+            <h1>Hello World</h1>
+            <d-button handler="/run-handler">Run</d-button>
+        </panel>
+    """)
+
+async def run_handler(req):
+    print("Running Handler!")
 
 async def main():
     config = dashborg.Config(proc_name="demo", anon_acc=True, auto_keygen=True)
     await dashborg.start_proc_client(config)
     await dashborg.register_panel_handler("default", "/", root_handler)
+    await dashborg.register_panel_handler("default", "/run-handler", run_handler)
     while True:
         await asyncio.sleep(1)
 
