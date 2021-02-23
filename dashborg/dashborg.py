@@ -27,7 +27,7 @@ DEFAULT_PROCNAME = "default"
 DEFAULT_ZONENAME = "default"
 DASHBORG_HOST = "grpc.api.dashborg.net"
 DASHBORG_PORT = 7632
-CLIENT_VERSION = "python-0.0.1"
+CLIENT_VERSION = "python-0.0.2"
 
 EC_EOF = "EOF"
 EC_UNKNOWN = "UNKNOWN"
@@ -35,6 +35,9 @@ EC_BADCONNID = "BADCONNID"
 EC_ACCACCESS = "ACCACCESS"
 EC_NOHANDLER = "NOHANDLER"
 EC_UNAVAILABLE = "UNAVAILABLE"
+
+# must be divisible by 3 (for base64 encoding)
+BLOB_READ_SIZE = 3 * 340 * 1024
 
 DASHBORG_CERT = """
 -----BEGIN CERTIFICATE-----
@@ -202,7 +205,7 @@ class PanelRequest:
         if self.is_done:
             return
         if not self.auth_impl and self._is_root_req() and self.err is None:
-            self._append_panelauth_rraction("noauth", "user")
+            self._set_auth_data({"type": "noauth", "role": "user"})
         await _global_client._send_request_response(self, True)
 
     def _append_rr(self, rr):
@@ -227,12 +230,12 @@ class PanelRequest:
             return True
         # check auths
         if none:
-            self._append_panelauth_rraction("noauth", "user")
+            self._set_auth_data({"type": "noauth", "role": "user"})
             return
         challengedata = self.data.get("challengedata") if type(self.data) is dict else None
         if password is not None:
             if challengedata is not None and challengedata.get("password") == password:
-                self._append_panelauth_rraction("password", "user")
+                self._set_auth_data({"type": "password", "role": "user"})
                 return True
         # add challenges
         if dashborg:
@@ -248,15 +251,25 @@ class PanelRequest:
                     ch["challengeerror"] = "Invalid Password"
             self._append_panelauth_challenge(ch)
         return False
-        
-    def _append_panelauth_rraction(self, authtype, authrole):
-        ts = dashts() + (24 * 60 * 60 * 1000)
-        aa = {"type": authtype, "auto": True, "ts": ts, "role": authrole}
-        json_data = json.dumps(aa)
+
+    def _get_auth_atom(self, auth_type):
+        for aa in self.auth_data:
+            if aa.get("type") == auth_type:
+                return aa
+        return None
+
+    def _set_auth_data(self, auth_atom):
+        if auth_atom.get("scope") is None:
+            auth_atom["scope"] = f"panel:{_global_client.config.zone_name}:{self.panel_name}"
+        if auth_atom.get("ts") is None:
+            auth_atom["ts"] = dashts() + (24 * 60 * 60 * 1000)
+        if auth_atom.get("type") is None:
+            raise RuntimeError("Dashborg Invalid AuthAtom, no Type specified")
+        json_data = json.dumps(auth_atom)
         rr_action = dborgproto_pb2.RRAction(Ts=dashts(), ActionType="panelauth", JsonData=json_data)
         self._append_rr(rr_action)
         return
-
+        
     def _append_panelauth_challenge(self, challenge):
         json_data = json.dumps(challenge)
         rr_action = dborgproto_pb2.RRAction(Ts=dashts(), ActionType="panelauthchallenge", JsonData=json_data)
@@ -269,6 +282,33 @@ class PanelRequest:
         json_data = json.dumps(data)
         rr_action = dborgproto_pb2.RRAction(Ts=dashts(), ActionType="setdata", Selector=path, JsonData=json_data)
         self._append_rr(rr_action)
+        return
+
+    async def set_blob_data(self, path, mime_type, aio_file):
+        if self.is_done:
+            raise RuntimeError(f"Cannot call set_blob_data(), path={path} mime-type={mime_type}, PanelRequest is already done")
+        # validate mime-type
+        first = True
+        while True:
+            buffer = await aio_file.read(BLOB_READ_SIZE)
+            if len(buffer) == 0:
+                break
+            rr_action = dborgproto_pb2.RRAction(Ts=dashts(), Selector=path, BlobBytes=buffer)
+            if first:
+                rr_action.ActionType = "blob"
+                rr_action.BlobMimeType = mime_type
+                first = False
+            else:
+                rr_action.ActionType = "blobext"
+            self._append_rr(rr_action)
+            await self._flush()
+        return
+
+    async def set_blob_data_from_file(self, path, mime_type, file_name):
+        if self.is_done:
+            raise RuntimeError(f"Cannot call set_blob_data_from_file(), PanelRequest is already done")
+        fd = await aiofiles.open(file_name, "rb")
+        await self.set_blob_data(path, mime_type, fd)
         return
 
     def set_html(self, html):
@@ -521,6 +561,7 @@ class Client:
             ResponseDone=done,
             Err=req.err)
         msg.Actions.extend(req.rr_actions)
+        req.rr_actions = []
         conn_meta = (("dashborg-connid", self.conn_id),)
         try:
             resp = await self.db_service.SendResponse(msg, metadata=conn_meta)
