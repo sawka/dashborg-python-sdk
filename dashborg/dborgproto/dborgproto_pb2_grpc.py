@@ -29,6 +29,26 @@ class DashborgServiceStub(object):
                 request_serializer=dborgproto__pb2.RegisterHandlerMessage.SerializeToString,
                 response_deserializer=dborgproto__pb2.RegisterHandlerResponse.FromString,
                 )
+        self.StartStream = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/StartStream',
+                request_serializer=dborgproto__pb2.StartStreamMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.StartStreamResponse.FromString,
+                )
+        self.ReflectZone = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/ReflectZone',
+                request_serializer=dborgproto__pb2.ReflectZoneMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.ReflectZoneResponse.FromString,
+                )
+        self.CallDataHandler = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/CallDataHandler',
+                request_serializer=dborgproto__pb2.CallDataHandlerMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.CallDataHandlerResponse.FromString,
+                )
+        self.BackendPush = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/BackendPush',
+                request_serializer=dborgproto__pb2.BackendPushMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.BackendPushResponse.FromString,
+                )
         self.RequestStream = channel.unary_stream(
                 '/dashborg.rpc1.DashborgService/RequestStream',
                 request_serializer=dborgproto__pb2.RequestStreamMessage.SerializeToString,
@@ -52,6 +72,30 @@ class DashborgServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def RegisterHandler(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StartStream(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReflectZone(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CallDataHandler(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BackendPush(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -81,6 +125,26 @@ def add_DashborgServiceServicer_to_server(servicer, server):
                     servicer.RegisterHandler,
                     request_deserializer=dborgproto__pb2.RegisterHandlerMessage.FromString,
                     response_serializer=dborgproto__pb2.RegisterHandlerResponse.SerializeToString,
+            ),
+            'StartStream': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartStream,
+                    request_deserializer=dborgproto__pb2.StartStreamMessage.FromString,
+                    response_serializer=dborgproto__pb2.StartStreamResponse.SerializeToString,
+            ),
+            'ReflectZone': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReflectZone,
+                    request_deserializer=dborgproto__pb2.ReflectZoneMessage.FromString,
+                    response_serializer=dborgproto__pb2.ReflectZoneResponse.SerializeToString,
+            ),
+            'CallDataHandler': grpc.unary_unary_rpc_method_handler(
+                    servicer.CallDataHandler,
+                    request_deserializer=dborgproto__pb2.CallDataHandlerMessage.FromString,
+                    response_serializer=dborgproto__pb2.CallDataHandlerResponse.SerializeToString,
+            ),
+            'BackendPush': grpc.unary_unary_rpc_method_handler(
+                    servicer.BackendPush,
+                    request_deserializer=dborgproto__pb2.BackendPushMessage.FromString,
+                    response_serializer=dborgproto__pb2.BackendPushResponse.SerializeToString,
             ),
             'RequestStream': grpc.unary_stream_rpc_method_handler(
                     servicer.RequestStream,
@@ -145,6 +209,74 @@ class DashborgService(object):
         return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/RegisterHandler',
             dborgproto__pb2.RegisterHandlerMessage.SerializeToString,
             dborgproto__pb2.RegisterHandlerResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StartStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/StartStream',
+            dborgproto__pb2.StartStreamMessage.SerializeToString,
+            dborgproto__pb2.StartStreamResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ReflectZone(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/ReflectZone',
+            dborgproto__pb2.ReflectZoneMessage.SerializeToString,
+            dborgproto__pb2.ReflectZoneResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CallDataHandler(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/CallDataHandler',
+            dborgproto__pb2.CallDataHandlerMessage.SerializeToString,
+            dborgproto__pb2.CallDataHandlerResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def BackendPush(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/BackendPush',
+            dborgproto__pb2.BackendPushMessage.SerializeToString,
+            dborgproto__pb2.BackendPushResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

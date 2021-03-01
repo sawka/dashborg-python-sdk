@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'Z.github.com/sawka/dashborg-go-sdk/pkg/dashproto',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x10\x64\x62orgproto.proto\x12\rdashborg.rpc1\"\xa5\x01\n\x08RRAction\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\x12\n\nActionType\x18\x02 \x01(\t\x12\x10\n\x08Selector\x18\x03 \x01(\t\x12\x10\n\x08JsonData\x18\x04 \x01(\t\x12\x11\n\tEventType\x18\x05 \x01(\t\x12\x0c\n\x04Html\x18\x06 \x01(\t\x12\x0b\n\x03\x45rr\x18\x07 \x01(\t\x12\x11\n\tBlobBytes\x18\x08 \x01(\x0c\x12\x14\n\x0c\x42lobMimeType\x18\t \x01(\t\"\xb9\x01\n\x13SendResponseMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\r\n\x05ReqId\x18\x02 \x01(\t\x12\x13\n\x0bRequestType\x18\x03 \x01(\t\x12\x11\n\tPanelName\x18\x04 \x01(\t\x12\x12\n\nFeClientId\x18\x05 \x01(\t\x12\x14\n\x0cResponseDone\x18\x06 \x01(\x08\x12(\n\x07\x41\x63tions\x18\x07 \x03(\x0b\x32\x17.dashborg.rpc1.RRAction\x12\x0b\n\x03\x45rr\x18\x08 \x01(\t\"\xc3\x02\n\x0eRequestMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\r\n\x05\x41\x63\x63Id\x18\x02 \x01(\t\x12\x10\n\x08ZoneName\x18\x03 \x01(\t\x12\x11\n\tPanelName\x18\x04 \x01(\t\x12\x13\n\x0bRequestType\x18\x05 \x01(\t\x12\x0c\n\x04Path\x18\x06 \x01(\t\x12\r\n\x05ReqId\x18\x07 \x01(\t\x12\x12\n\nFeClientId\x18\x08 \x01(\t\x12\x11\n\tControlId\x18\t \x01(\t\x12\x10\n\x08JsonData\x18\n \x01(\t\x12\x10\n\x08\x41uthData\x18\x0b \x01(\t\x12\x16\n\x0ePanelStateData\x18\x0c \x01(\t\x12\x0b\n\x03\x45rr\x18\r \x01(\t\x12)\n\x07\x45rrCode\x18\x0e \x01(\x0e\x32\x18.dashborg.rpc1.ErrorCode\x12\x11\n\tTimeoutMs\x18\x0f \x01(\x03\x12\x11\n\tDataPaths\x18\x10 \x03(\t\"B\n\nHandlerKey\x12\x11\n\tPanelName\x18\x01 \x01(\t\x12\x13\n\x0bHandlerType\x18\x02 \x01(\t\x12\x0c\n\x04Path\x18\x03 \x01(\t\"Q\n\x16RegisterHandlerMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12+\n\x08Handlers\x18\x02 \x03(\x0b\x32\x19.dashborg.rpc1.HandlerKey\"b\n\x17RegisterHandlerResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12)\n\x07\x45rrCode\x18\x03 \x01(\x0e\x32\x18.dashborg.rpc1.ErrorCode\"\x9f\x03\n\x0bProcMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\x11\n\tProcRunId\x18\x02 \x01(\t\x12\r\n\x05\x41\x63\x63Id\x18\x03 \x01(\t\x12\x10\n\x08ZoneName\x18\x04 \x01(\t\x12\x0f\n\x07\x41nonAcc\x18\x05 \x01(\x08\x12\x10\n\x08ProcName\x18\x06 \x01(\t\x12:\n\x08ProcTags\x18\x07 \x03(\x0b\x32(.dashborg.rpc1.ProcMessage.ProcTagsEntry\x12:\n\x08HostData\x18\x08 \x03(\x0b\x32(.dashborg.rpc1.ProcMessage.HostDataEntry\x12\x0f\n\x07StartTs\x18\t \x01(\x03\x12+\n\x08Handlers\x18\n \x03(\x0b\x32\x19.dashborg.rpc1.HandlerKey\x12\x15\n\rClientVersion\x18\x0b \x01(\t\x1a/\n\rProcTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rHostDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"g\n\x0cProcResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12)\n\x07\x45rrCode\x18\x03 \x01(\x0e\x32\x18.dashborg.rpc1.ErrorCode\x12\x0e\n\x06\x43onnId\x18\x04 \x01(\t\"\"\n\x14RequestStreamMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\"_\n\x14SendResponseResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12)\n\x07\x45rrCode\x18\x03 \x01(\x0e\x32\x18.dashborg.rpc1.ErrorCode*~\n\tErrorCode\x12\x0b\n\x07\x45\x43_NONE\x10\x00\x12\n\n\x06\x45\x43_EOF\x10\x01\x12\x0e\n\nEC_UNKNOWN\x10\x02\x12\x10\n\x0c\x45\x43_BADCONNID\x10\x03\x12\x10\n\x0c\x45\x43_ACCACCESS\x10\x04\x12\x10\n\x0c\x45\x43_NOHANDLER\x10\x05\x12\x12\n\x0e\x45\x43_UNAVAILABLE\x10\x06\x32\xec\x02\n\x0f\x44\x61shborgService\x12\x41\n\x04Proc\x12\x1a.dashborg.rpc1.ProcMessage\x1a\x1b.dashborg.rpc1.ProcResponse\"\x00\x12Y\n\x0cSendResponse\x12\".dashborg.rpc1.SendResponseMessage\x1a#.dashborg.rpc1.SendResponseResponse\"\x00\x12\x62\n\x0fRegisterHandler\x12%.dashborg.rpc1.RegisterHandlerMessage\x1a&.dashborg.rpc1.RegisterHandlerResponse\"\x00\x12W\n\rRequestStream\x12#.dashborg.rpc1.RequestStreamMessage\x1a\x1d.dashborg.rpc1.RequestMessage\"\x00\x30\x01\x42\x30Z.github.com/sawka/dashborg-go-sdk/pkg/dashprotob\x06proto3'
+  serialized_pb=b'\n\x10\x64\x62orgproto.proto\x12\rdashborg.rpc1\"\xa5\x01\n\x08RRAction\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\x12\n\nActionType\x18\x02 \x01(\t\x12\x10\n\x08Selector\x18\x03 \x01(\t\x12\x10\n\x08JsonData\x18\x04 \x01(\t\x12\x11\n\tEventType\x18\x05 \x01(\t\x12\x0c\n\x04Html\x18\x06 \x01(\t\x12\x0b\n\x03\x45rr\x18\x07 \x01(\t\x12\x11\n\tBlobBytes\x18\x08 \x01(\x0c\x12\x14\n\x0c\x42lobMimeType\x18\t \x01(\t\"\xb9\x01\n\x13SendResponseMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\r\n\x05ReqId\x18\x02 \x01(\t\x12\x13\n\x0bRequestType\x18\x03 \x01(\t\x12\x11\n\tPanelName\x18\x04 \x01(\t\x12\x12\n\nFeClientId\x18\x05 \x01(\t\x12\x14\n\x0cResponseDone\x18\x06 \x01(\x08\x12(\n\x07\x41\x63tions\x18\x07 \x03(\x0b\x32\x17.dashborg.rpc1.RRAction\x12\x0b\n\x03\x45rr\x18\x08 \x01(\t\"\xda\x02\n\x0eRequestMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\r\n\x05\x41\x63\x63Id\x18\x02 \x01(\t\x12\x10\n\x08ZoneName\x18\x03 \x01(\t\x12\x11\n\tPanelName\x18\x04 \x01(\t\x12\x13\n\x0bRequestType\x18\x05 \x01(\t\x12\x0c\n\x04Path\x18\x06 \x01(\t\x12\r\n\x05ReqId\x18\x07 \x01(\t\x12\x12\n\nFeClientId\x18\x08 \x01(\t\x12\x11\n\tControlId\x18\t \x01(\t\x12\x10\n\x08JsonData\x18\n \x01(\t\x12\x10\n\x08\x41uthData\x18\x0b \x01(\t\x12\x16\n\x0ePanelStateData\x18\x0c \x01(\t\x12\x0b\n\x03\x45rr\x18\r \x01(\t\x12)\n\x07\x45rrCode\x18\x0e \x01(\x0e\x32\x18.dashborg.rpc1.ErrorCode\x12\x11\n\tTimeoutMs\x18\x0f \x01(\x03\x12\x11\n\tDataPaths\x18\x10 \x03(\t\x12\x15\n\rIsBackendCall\x18\x11 \x01(\x08\"B\n\nHandlerKey\x12\x11\n\tPanelName\x18\x01 \x01(\t\x12\x13\n\x0bHandlerType\x18\x02 \x01(\t\x12\x0c\n\x04Path\x18\x03 \x01(\t\"Q\n\x16RegisterHandlerMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12+\n\x08Handlers\x18\x02 \x03(\x0b\x32\x19.dashborg.rpc1.HandlerKey\"b\n\x17RegisterHandlerResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12)\n\x07\x45rrCode\x18\x03 \x01(\x0e\x32\x18.dashborg.rpc1.ErrorCode\"\x9f\x03\n\x0bProcMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\x11\n\tProcRunId\x18\x02 \x01(\t\x12\r\n\x05\x41\x63\x63Id\x18\x03 \x01(\t\x12\x10\n\x08ZoneName\x18\x04 \x01(\t\x12\x0f\n\x07\x41nonAcc\x18\x05 \x01(\x08\x12\x10\n\x08ProcName\x18\x06 \x01(\t\x12:\n\x08ProcTags\x18\x07 \x03(\x0b\x32(.dashborg.rpc1.ProcMessage.ProcTagsEntry\x12:\n\x08HostData\x18\x08 \x03(\x0b\x32(.dashborg.rpc1.ProcMessage.HostDataEntry\x12\x0f\n\x07StartTs\x18\t \x01(\x03\x12+\n\x08Handlers\x18\n \x03(\x0b\x32\x19.dashborg.rpc1.HandlerKey\x12\x15\n\rClientVersion\x18\x0b \x01(\t\x1a/\n\rProcTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rHostDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"g\n\x0cProcResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12)\n\x07\x45rrCode\x18\x03 \x01(\x0e\x32\x18.dashborg.rpc1.ErrorCode\x12\x0e\n\x06\x43onnId\x18\x04 \x01(\t\"\"\n\x14RequestStreamMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\"_\n\x14SendResponseResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12)\n\x07\x45rrCode\x18\x03 \x01(\x0e\x32\x18.dashborg.rpc1.ErrorCode\"^\n\x12StartStreamMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\x11\n\tPanelName\x18\x02 \x01(\t\x12\x12\n\nFeClientId\x18\x03 \x01(\t\x12\x15\n\rExistingReqId\x18\x04 \x01(\t\"B\n\x13StartStreamResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12\r\n\x05ReqId\x18\x03 \x01(\t\" \n\x12ReflectZoneMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\"E\n\x13ReflectZoneResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12\x10\n\x08JsonData\x18\x03 \x01(\t\"W\n\x16\x43\x61llDataHandlerMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\x11\n\tPanelName\x18\x02 \x01(\t\x12\x0c\n\x04Path\x18\x03 \x01(\t\x12\x10\n\x08JsonData\x18\x04 \x01(\t\"I\n\x17\x43\x61llDataHandlerResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t\x12\x10\n\x08JsonData\x18\x03 \x01(\t\"A\n\x12\x42\x61\x63kendPushMessage\x12\n\n\x02Ts\x18\x01 \x01(\x03\x12\x11\n\tPanelName\x18\x02 \x01(\t\x12\x0c\n\x04Path\x18\x03 \x01(\t\"3\n\x13\x42\x61\x63kendPushResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x0b\n\x03\x45rr\x18\x02 \x01(\t*~\n\tErrorCode\x12\x0b\n\x07\x45\x43_NONE\x10\x00\x12\n\n\x06\x45\x43_EOF\x10\x01\x12\x0e\n\nEC_UNKNOWN\x10\x02\x12\x10\n\x0c\x45\x43_BADCONNID\x10\x03\x12\x10\n\x0c\x45\x43_ACCACCESS\x10\x04\x12\x10\n\x0c\x45\x43_NOHANDLER\x10\x05\x12\x12\n\x0e\x45\x43_UNAVAILABLE\x10\x06\x32\xd8\x05\n\x0f\x44\x61shborgService\x12\x41\n\x04Proc\x12\x1a.dashborg.rpc1.ProcMessage\x1a\x1b.dashborg.rpc1.ProcResponse\"\x00\x12Y\n\x0cSendResponse\x12\".dashborg.rpc1.SendResponseMessage\x1a#.dashborg.rpc1.SendResponseResponse\"\x00\x12\x62\n\x0fRegisterHandler\x12%.dashborg.rpc1.RegisterHandlerMessage\x1a&.dashborg.rpc1.RegisterHandlerResponse\"\x00\x12V\n\x0bStartStream\x12!.dashborg.rpc1.StartStreamMessage\x1a\".dashborg.rpc1.StartStreamResponse\"\x00\x12V\n\x0bReflectZone\x12!.dashborg.rpc1.ReflectZoneMessage\x1a\".dashborg.rpc1.ReflectZoneResponse\"\x00\x12\x62\n\x0f\x43\x61llDataHandler\x12%.dashborg.rpc1.CallDataHandlerMessage\x1a&.dashborg.rpc1.CallDataHandlerResponse\"\x00\x12V\n\x0b\x42\x61\x63kendPush\x12!.dashborg.rpc1.BackendPushMessage\x1a\".dashborg.rpc1.BackendPushResponse\"\x00\x12W\n\rRequestStream\x12#.dashborg.rpc1.RequestStreamMessage\x1a\x1d.dashborg.rpc1.RequestMessage\"\x00\x30\x01\x42\x30Z.github.com/sawka/dashborg-go-sdk/pkg/dashprotob\x06proto3'
 )
 
 _ERRORCODE = _descriptor.EnumDescriptor(
@@ -68,8 +68,8 @@ _ERRORCODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1624,
-  serialized_end=1750,
+  serialized_start=2200,
+  serialized_end=2326,
 )
 _sym_db.RegisterEnumDescriptor(_ERRORCODE)
 
@@ -373,6 +373,13 @@ _REQUESTMESSAGE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='IsBackendCall', full_name='dashborg.rpc1.RequestMessage.IsBackendCall', index=16,
+      number=17, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -386,7 +393,7 @@ _REQUESTMESSAGE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=392,
-  serialized_end=715,
+  serialized_end=738,
 )
 
 
@@ -431,8 +438,8 @@ _HANDLERKEY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=717,
-  serialized_end=783,
+  serialized_start=740,
+  serialized_end=806,
 )
 
 
@@ -470,8 +477,8 @@ _REGISTERHANDLERMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=785,
-  serialized_end=866,
+  serialized_start=808,
+  serialized_end=889,
 )
 
 
@@ -516,8 +523,8 @@ _REGISTERHANDLERRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=868,
-  serialized_end=966,
+  serialized_start=891,
+  serialized_end=989,
 )
 
 
@@ -555,8 +562,8 @@ _PROCMESSAGE_PROCTAGSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1288,
-  serialized_end=1335,
+  serialized_start=1311,
+  serialized_end=1358,
 )
 
 _PROCMESSAGE_HOSTDATAENTRY = _descriptor.Descriptor(
@@ -593,8 +600,8 @@ _PROCMESSAGE_HOSTDATAENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1337,
-  serialized_end=1384,
+  serialized_start=1360,
+  serialized_end=1407,
 )
 
 _PROCMESSAGE = _descriptor.Descriptor(
@@ -694,8 +701,8 @@ _PROCMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=969,
-  serialized_end=1384,
+  serialized_start=992,
+  serialized_end=1407,
 )
 
 
@@ -747,8 +754,8 @@ _PROCRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1386,
-  serialized_end=1489,
+  serialized_start=1409,
+  serialized_end=1512,
 )
 
 
@@ -779,8 +786,8 @@ _REQUESTSTREAMMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1491,
-  serialized_end=1525,
+  serialized_start=1514,
+  serialized_end=1548,
 )
 
 
@@ -825,8 +832,369 @@ _SENDRESPONSERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1527,
-  serialized_end=1622,
+  serialized_start=1550,
+  serialized_end=1645,
+)
+
+
+_STARTSTREAMMESSAGE = _descriptor.Descriptor(
+  name='StartStreamMessage',
+  full_name='dashborg.rpc1.StartStreamMessage',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Ts', full_name='dashborg.rpc1.StartStreamMessage.Ts', index=0,
+      number=1, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='PanelName', full_name='dashborg.rpc1.StartStreamMessage.PanelName', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='FeClientId', full_name='dashborg.rpc1.StartStreamMessage.FeClientId', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='ExistingReqId', full_name='dashborg.rpc1.StartStreamMessage.ExistingReqId', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1647,
+  serialized_end=1741,
+)
+
+
+_STARTSTREAMRESPONSE = _descriptor.Descriptor(
+  name='StartStreamResponse',
+  full_name='dashborg.rpc1.StartStreamResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Success', full_name='dashborg.rpc1.StartStreamResponse.Success', index=0,
+      number=1, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='Err', full_name='dashborg.rpc1.StartStreamResponse.Err', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='ReqId', full_name='dashborg.rpc1.StartStreamResponse.ReqId', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1743,
+  serialized_end=1809,
+)
+
+
+_REFLECTZONEMESSAGE = _descriptor.Descriptor(
+  name='ReflectZoneMessage',
+  full_name='dashborg.rpc1.ReflectZoneMessage',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Ts', full_name='dashborg.rpc1.ReflectZoneMessage.Ts', index=0,
+      number=1, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1811,
+  serialized_end=1843,
+)
+
+
+_REFLECTZONERESPONSE = _descriptor.Descriptor(
+  name='ReflectZoneResponse',
+  full_name='dashborg.rpc1.ReflectZoneResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Success', full_name='dashborg.rpc1.ReflectZoneResponse.Success', index=0,
+      number=1, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='Err', full_name='dashborg.rpc1.ReflectZoneResponse.Err', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='JsonData', full_name='dashborg.rpc1.ReflectZoneResponse.JsonData', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1845,
+  serialized_end=1914,
+)
+
+
+_CALLDATAHANDLERMESSAGE = _descriptor.Descriptor(
+  name='CallDataHandlerMessage',
+  full_name='dashborg.rpc1.CallDataHandlerMessage',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Ts', full_name='dashborg.rpc1.CallDataHandlerMessage.Ts', index=0,
+      number=1, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='PanelName', full_name='dashborg.rpc1.CallDataHandlerMessage.PanelName', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='Path', full_name='dashborg.rpc1.CallDataHandlerMessage.Path', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='JsonData', full_name='dashborg.rpc1.CallDataHandlerMessage.JsonData', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1916,
+  serialized_end=2003,
+)
+
+
+_CALLDATAHANDLERRESPONSE = _descriptor.Descriptor(
+  name='CallDataHandlerResponse',
+  full_name='dashborg.rpc1.CallDataHandlerResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Success', full_name='dashborg.rpc1.CallDataHandlerResponse.Success', index=0,
+      number=1, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='Err', full_name='dashborg.rpc1.CallDataHandlerResponse.Err', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='JsonData', full_name='dashborg.rpc1.CallDataHandlerResponse.JsonData', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2005,
+  serialized_end=2078,
+)
+
+
+_BACKENDPUSHMESSAGE = _descriptor.Descriptor(
+  name='BackendPushMessage',
+  full_name='dashborg.rpc1.BackendPushMessage',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Ts', full_name='dashborg.rpc1.BackendPushMessage.Ts', index=0,
+      number=1, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='PanelName', full_name='dashborg.rpc1.BackendPushMessage.PanelName', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='Path', full_name='dashborg.rpc1.BackendPushMessage.Path', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2080,
+  serialized_end=2145,
+)
+
+
+_BACKENDPUSHRESPONSE = _descriptor.Descriptor(
+  name='BackendPushResponse',
+  full_name='dashborg.rpc1.BackendPushResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Success', full_name='dashborg.rpc1.BackendPushResponse.Success', index=0,
+      number=1, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='Err', full_name='dashborg.rpc1.BackendPushResponse.Err', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2147,
+  serialized_end=2198,
 )
 
 _SENDRESPONSEMESSAGE.fields_by_name['Actions'].message_type = _RRACTION
@@ -850,6 +1218,14 @@ DESCRIPTOR.message_types_by_name['ProcMessage'] = _PROCMESSAGE
 DESCRIPTOR.message_types_by_name['ProcResponse'] = _PROCRESPONSE
 DESCRIPTOR.message_types_by_name['RequestStreamMessage'] = _REQUESTSTREAMMESSAGE
 DESCRIPTOR.message_types_by_name['SendResponseResponse'] = _SENDRESPONSERESPONSE
+DESCRIPTOR.message_types_by_name['StartStreamMessage'] = _STARTSTREAMMESSAGE
+DESCRIPTOR.message_types_by_name['StartStreamResponse'] = _STARTSTREAMRESPONSE
+DESCRIPTOR.message_types_by_name['ReflectZoneMessage'] = _REFLECTZONEMESSAGE
+DESCRIPTOR.message_types_by_name['ReflectZoneResponse'] = _REFLECTZONERESPONSE
+DESCRIPTOR.message_types_by_name['CallDataHandlerMessage'] = _CALLDATAHANDLERMESSAGE
+DESCRIPTOR.message_types_by_name['CallDataHandlerResponse'] = _CALLDATAHANDLERRESPONSE
+DESCRIPTOR.message_types_by_name['BackendPushMessage'] = _BACKENDPUSHMESSAGE
+DESCRIPTOR.message_types_by_name['BackendPushResponse'] = _BACKENDPUSHRESPONSE
 DESCRIPTOR.enum_types_by_name['ErrorCode'] = _ERRORCODE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -939,6 +1315,62 @@ SendResponseResponse = _reflection.GeneratedProtocolMessageType('SendResponseRes
   })
 _sym_db.RegisterMessage(SendResponseResponse)
 
+StartStreamMessage = _reflection.GeneratedProtocolMessageType('StartStreamMessage', (_message.Message,), {
+  'DESCRIPTOR' : _STARTSTREAMMESSAGE,
+  '__module__' : 'dborgproto_pb2'
+  # @@protoc_insertion_point(class_scope:dashborg.rpc1.StartStreamMessage)
+  })
+_sym_db.RegisterMessage(StartStreamMessage)
+
+StartStreamResponse = _reflection.GeneratedProtocolMessageType('StartStreamResponse', (_message.Message,), {
+  'DESCRIPTOR' : _STARTSTREAMRESPONSE,
+  '__module__' : 'dborgproto_pb2'
+  # @@protoc_insertion_point(class_scope:dashborg.rpc1.StartStreamResponse)
+  })
+_sym_db.RegisterMessage(StartStreamResponse)
+
+ReflectZoneMessage = _reflection.GeneratedProtocolMessageType('ReflectZoneMessage', (_message.Message,), {
+  'DESCRIPTOR' : _REFLECTZONEMESSAGE,
+  '__module__' : 'dborgproto_pb2'
+  # @@protoc_insertion_point(class_scope:dashborg.rpc1.ReflectZoneMessage)
+  })
+_sym_db.RegisterMessage(ReflectZoneMessage)
+
+ReflectZoneResponse = _reflection.GeneratedProtocolMessageType('ReflectZoneResponse', (_message.Message,), {
+  'DESCRIPTOR' : _REFLECTZONERESPONSE,
+  '__module__' : 'dborgproto_pb2'
+  # @@protoc_insertion_point(class_scope:dashborg.rpc1.ReflectZoneResponse)
+  })
+_sym_db.RegisterMessage(ReflectZoneResponse)
+
+CallDataHandlerMessage = _reflection.GeneratedProtocolMessageType('CallDataHandlerMessage', (_message.Message,), {
+  'DESCRIPTOR' : _CALLDATAHANDLERMESSAGE,
+  '__module__' : 'dborgproto_pb2'
+  # @@protoc_insertion_point(class_scope:dashborg.rpc1.CallDataHandlerMessage)
+  })
+_sym_db.RegisterMessage(CallDataHandlerMessage)
+
+CallDataHandlerResponse = _reflection.GeneratedProtocolMessageType('CallDataHandlerResponse', (_message.Message,), {
+  'DESCRIPTOR' : _CALLDATAHANDLERRESPONSE,
+  '__module__' : 'dborgproto_pb2'
+  # @@protoc_insertion_point(class_scope:dashborg.rpc1.CallDataHandlerResponse)
+  })
+_sym_db.RegisterMessage(CallDataHandlerResponse)
+
+BackendPushMessage = _reflection.GeneratedProtocolMessageType('BackendPushMessage', (_message.Message,), {
+  'DESCRIPTOR' : _BACKENDPUSHMESSAGE,
+  '__module__' : 'dborgproto_pb2'
+  # @@protoc_insertion_point(class_scope:dashborg.rpc1.BackendPushMessage)
+  })
+_sym_db.RegisterMessage(BackendPushMessage)
+
+BackendPushResponse = _reflection.GeneratedProtocolMessageType('BackendPushResponse', (_message.Message,), {
+  'DESCRIPTOR' : _BACKENDPUSHRESPONSE,
+  '__module__' : 'dborgproto_pb2'
+  # @@protoc_insertion_point(class_scope:dashborg.rpc1.BackendPushResponse)
+  })
+_sym_db.RegisterMessage(BackendPushResponse)
+
 
 DESCRIPTOR._options = None
 _PROCMESSAGE_PROCTAGSENTRY._options = None
@@ -951,8 +1383,8 @@ _DASHBORGSERVICE = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=1753,
-  serialized_end=2117,
+  serialized_start=2329,
+  serialized_end=3057,
   methods=[
   _descriptor.MethodDescriptor(
     name='Proc',
@@ -985,9 +1417,49 @@ _DASHBORGSERVICE = _descriptor.ServiceDescriptor(
     create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
+    name='StartStream',
+    full_name='dashborg.rpc1.DashborgService.StartStream',
+    index=3,
+    containing_service=None,
+    input_type=_STARTSTREAMMESSAGE,
+    output_type=_STARTSTREAMRESPONSE,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='ReflectZone',
+    full_name='dashborg.rpc1.DashborgService.ReflectZone',
+    index=4,
+    containing_service=None,
+    input_type=_REFLECTZONEMESSAGE,
+    output_type=_REFLECTZONERESPONSE,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='CallDataHandler',
+    full_name='dashborg.rpc1.DashborgService.CallDataHandler',
+    index=5,
+    containing_service=None,
+    input_type=_CALLDATAHANDLERMESSAGE,
+    output_type=_CALLDATAHANDLERRESPONSE,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='BackendPush',
+    full_name='dashborg.rpc1.DashborgService.BackendPush',
+    index=6,
+    containing_service=None,
+    input_type=_BACKENDPUSHMESSAGE,
+    output_type=_BACKENDPUSHRESPONSE,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
     name='RequestStream',
     full_name='dashborg.rpc1.DashborgService.RequestStream',
-    index=3,
+    index=7,
     containing_service=None,
     input_type=_REQUESTSTREAMMESSAGE,
     output_type=_REQUESTMESSAGE,
