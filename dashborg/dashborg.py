@@ -78,7 +78,7 @@ class _HandlerVal:
         self.proto_hkey = proto_hkey
 
 class Config:
-    def __init__(self, acc_id=None, anon_acc=None, zone_name=None, proc_name=None, proc_tags=None, key_file_name=None, cert_file_name=None, auto_keygen=None, verbose=None, env=None, dashborg_srv_host=None, dashborg_srv_port=None, use_logger=False):
+    def __init__(self, acc_id=None, anon_acc=None, zone_name=None, proc_name=None, proc_tags=None, key_file_name=None, cert_file_name=None, auto_keygen=None, verbose=None, env=None, dashborg_srv_host=None, dashborg_srv_port=None, use_logger=False, allow_backend_calls=False):
         self.acc_id = acc_id
         self.anon_acc = anon_acc
         self.zone_name = zone_name
@@ -92,6 +92,7 @@ class Config:
         self.dashborg_srv_host = dashborg_srv_host
         self.dashborg_srv_port = dashborg_srv_port
         self.use_logger = use_logger
+        self.allow_backend_calls = allow_backend_calls
 
     def _set_defaults(self):
         self.acc_id = _default_string(self.acc_id, os.environ.get("DASHBORG_ACCID"))
@@ -187,12 +188,13 @@ def _read_cert_info(cert_file):
     return {"acc_id": acc_id, "pk256": pk256_base64}
 
 class PanelRequest:
-    def __init__(self, req_msg):
-        self.panel_name = req_msg.PanelName
-        self.req_id = req_msg.ReqId
-        self.request_type = req_msg.RequestType
-        self.fe_client_id = req_msg.FeClientId
-        self.path = req_msg.Path
+    def __init__(self):
+        self.start_time = datetime.datetime.now()
+        self.panel_name = None
+        self.req_id = None
+        self.request_type = None
+        self.fe_client_id = None
+        self.path = None
         self.err = None
         self.rr_actions = []
         self.is_done = False
@@ -200,6 +202,16 @@ class PanelRequest:
         self.panel_state = None
         self.auth_data = []
         self.auth_impl = False
+        self.is_backend_call = False
+        self.is_stream = False
+
+    def _set_from_reqmsg(self, req_msg):
+        self.panel_name = req_msg.PanelName
+        self.req_id = req_msg.ReqId
+        self.request_type = req_msg.RequestType
+        self.fe_client_id = req_msg.FeClientId
+        self.path = req_msg.Path
+        self.is_backend_call = req_msg.IsBackendCall
 
     async def done(self):
         if self.is_done:
@@ -214,7 +226,7 @@ class PanelRequest:
     def _is_root_req(self):
         return self.request_type == "handler" and self.panel_name is not None and self.path == "/"
 
-    async def _flush(self):
+    async def flush(self):
         if self.is_done:
             raise RuntimeError("Cannot flush(), PanelRequest is already done")
         await _global_client._send_request_response(self, False)
@@ -301,7 +313,7 @@ class PanelRequest:
             else:
                 rr_action.ActionType = "blobext"
             self._append_rr(rr_action)
-            await self._flush()
+            await self.flush()
         return
 
     async def set_blob_data_from_file(self, path, mime_type, file_name):
@@ -459,7 +471,8 @@ class Client:
             _log_info(f"Dashborg dispatch_request got error request err:{req_msg.Err}")
             return
         _log_info(f"Dashborg gRPC got request panel={req_msg.PanelName}, type={req_msg.RequestType}, path={req_msg.Path}")
-        preq = PanelRequest(req_msg)
+        preq = PanelRequest()
+        preq._set_from_reqmsg(req_msg)
         hkey = _make_handler_key(req_msg)
         hval = self.handler_map.get(hkey)
         if hval == None:
@@ -570,6 +583,49 @@ class Client:
         except grpc.RpcError as e:
             _log_error(f"Dashborg SendResponse gRPC error:{e}")
 
+    async def _reflect_zone(self):
+        m = dborgproto_pb2.ReflectZoneMessage(Ts=dashts())
+        conn_meta = (("dashborg-connid", self.conn_id),)
+        resp = await self.db_service.ReflectZone(m, metadata=conn_meta)
+        if resp.Err is not None and resp.Err != "":
+            raise RuntimeError(f"Error calling reflect_zone err:{resp.Err}")
+        if not resp.Success:
+            raise RuntimeError(f"Error calling reflect_zone")
+        rtn = None
+        if resp.JsonData is not None and resp.JsonData != "":
+            rtn = json.loads(resp.JsonData)
+        return rtn
+
+    async def _backend_push(self, panel_name, path):
+        m = dborgproto_pb2.BackendPushMessage(Ts=dashts(), PanelName=panel_name, Path=path)
+        conn_meta = (("dashborg-connid", self.conn_id),)
+        resp = await self.db_service.BackendPush(m, metadata=conn_meta)
+        if resp.Err is not None and resp.Err != "":
+            raise RuntimeError(f"Error calling backend_push err:{resp.Err}")
+        if not resp.Success:
+            raise RuntimeError(f"Error calling backend_push")
+        return
+
+    async def _call_data_handler(self, panel_name, path, data):
+        json_data = None
+        if data is not None:
+            json_data = json.dumps(data)
+        m = dborgproto_pb2.CallDataHandlerMessage(
+            Ts=dashts(),
+            PanelName=panel_name,
+            Path=path,
+            JsonData=json_data)
+        conn_meta = (("dashborg-connid", self.conn_id),)
+        resp = await self.db_service.CallDataHandler(m, metadata=conn_meta)
+        if resp.Err is not None and resp.Err != "":
+            raise RuntimeError(f"Error calling call_data_handler err:{resp.Err}")
+        if not resp.Success:
+            raise RuntimeError(f"Error calling call_data_handler")
+        rtn = None
+        if resp.JsonData is not None and resp.JsonData != "":
+            rtn = json.loads(resp.JsonData)
+        return rtn
+        
 
 async def start_proc_client(config):
     config._set_defaults()
@@ -626,4 +682,11 @@ def _log_error(*args):
     else:
         print(args)
 
+async def reflect_zone():
+    return await _global_client._reflect_zone()
 
+async def backend_push(panel_name, path):
+    return await _global_client._backend_push(panel_name, path)
+
+async def call_data_handler(panel_name, path, data):
+    return await _global_client._call_data_handler(panel_name, path, data)
