@@ -27,7 +27,7 @@ DEFAULT_PROCNAME = "default"
 DEFAULT_ZONENAME = "default"
 DASHBORG_HOST = "grpc.api.dashborg.net"
 DASHBORG_PORT = 7632
-CLIENT_VERSION = "python-0.0.2"
+CLIENT_VERSION = "python-0.0.3"
 
 EC_EOF = "EOF"
 EC_UNKNOWN = "UNKNOWN"
@@ -76,6 +76,13 @@ class _HandlerVal:
     def __init__(self, fn, proto_hkey):
         self.handler_fn = fn
         self.proto_hkey = proto_hkey
+
+class _StreamControl:
+    def __init__(self, panel_name, stream_id, req_id=None, stream_task=None):
+        self.panel_name = panel_name
+        self.stream_id = stream_id
+        self.req_id = req_id
+        self.stream_task = stream_task
 
 class Config:
     def __init__(self, acc_id=None, anon_acc=None, zone_name=None, proc_name=None, proc_tags=None, key_file_name=None, cert_file_name=None, auto_keygen=None, verbose=None, env=None, dashborg_srv_host=None, dashborg_srv_port=None, use_logger=False, allow_backend_calls=False):
@@ -213,12 +220,21 @@ class PanelRequest:
         self.path = req_msg.Path
         self.is_backend_call = req_msg.IsBackendCall
 
-    async def done(self):
+    async def done(self, swallow_error=False):
         if self.is_done:
             return
+        self.is_done = True
         if not self.auth_impl and self._is_root_req() and self.err is None:
             self._set_auth_data({"type": "noauth", "role": "user"})
-        await _global_client._send_request_response(self, True)
+        if self.is_stream:
+            _global_client._handle_stream_close(self, False)
+        try:
+            await _global_client._send_request_response(self, True)
+        except BaseException as e:
+            if swallow_error:
+                _log_info(f"Dashborg error in done() sending request response {type(e)}:{e}")
+            else:
+                raise e
 
     def _append_rr(self, rr):
         self.rr_actions.append(rr)
@@ -229,8 +245,8 @@ class PanelRequest:
     async def flush(self):
         if self.is_done:
             raise RuntimeError("Cannot flush(), PanelRequest is already done")
+        # difference from Go client -- we don't auto close the stream (exception/cancelerror, etc.)
         await _global_client._send_request_response(self, False)
-        return
 
     def _is_authenticated(self):
         raw_auth = self.auth_data
@@ -345,16 +361,47 @@ class PanelRequest:
         self._append_rr(rr_action)
         return
 
+    async def start_stream(self, stream_id, control_path, stream_fn):
+        # todo - validate params
+        if self.is_done:
+            raise RuntimeError(f"Cannot call start_stream(), PanelRequest is already done")
+        if self.is_stream:
+            raise RuntimeError(f"Cannot call start_stream(), PanelRequest is already streaming")
+        if self.fe_client_id is None or self.fe_client_id == "":
+            raise RuntimeError(f"No fe_client_id, client does not support streaming")
+        stream_req_id, should_start = await _global_client._start_stream(self.panel_name, stream_id, self.fe_client_id)
+        print(f"DASH - start_stream req_id:{stream_req_id} should_start:{should_start}")
+        json_data = json.dumps({"reqid": stream_req_id})
+        rr_action = dborgproto_pb2.RRAction(Ts=dashts(), ActionType="streamopen", Selector=control_path, JsonData=json_data)
+        self._append_rr(rr_action)
+        await self.flush()
+        if should_start:
+            stream_req = PanelRequest()
+            stream_req.panel_name = self.panel_name
+            stream_req.req_id = stream_req_id
+            stream_req.request_type = "stream"
+            stream_req.path = stream_id
+            stream_req.is_stream = True
+            async def cancel_wrap():
+                try:
+                    await stream_fn(stream_req)
+                except asyncio.CancelledError:
+                    _log_info(f"Dashborg stream reqid:{stream_req.req_id} canceled")
+                except BaseException as e:
+                    _log_error(f"Dashborg uncaught stream_fn exception {type(e)}:{e}")
+                    raise e
+                finally:
+                    await stream_req.done(swallow_error=True)
+            stream_task = asyncio.create_task(cancel_wrap())
+            _global_client._set_stream_task(self.panel_name, stream_id, stream_task)
+        return
+
 def _make_handler_key(req_msg):
     htype = None
     if req_msg.RequestType == "data":
         htype = "data"
     elif req_msg.RequestType == "handler":
         htype = "handler"
-    elif req_msg.RequestType == "panel":
-        htype = "panel"
-    elif req_msg.RequestType == "streamopen" or req_msg.RequestType == "streamclose":
-        htype = "stream"
     else:
         raise RuntimeError(f"Invalid RequestMessage.RequestType [{req_msg.RequestType}]")
     path = req_msg.Path
@@ -367,7 +414,9 @@ class Client:
         self.cvar = asyncio.Condition()
         self.start_ts = dashts()
         self.proc_run_id = str(uuid.uuid4())
-        self.handler_map = {}
+        self.handler_map = {}    # (panel_name, handler_type, path) -> _HandlerVal
+        self.stream_map = {}     # (panel_name, stream_id) -> _StreamControl
+        self.stream_key_map = {} # req_id -> (panel_name, stream_id)
         self.conn_id = None
         self.config = config
         self.conn = None
@@ -473,6 +522,9 @@ class Client:
         _log_info(f"Dashborg gRPC got request panel={req_msg.PanelName}, type={req_msg.RequestType}, path={req_msg.Path}")
         preq = PanelRequest()
         preq._set_from_reqmsg(req_msg)
+        if req_msg.RequestType == "streamclose":
+            self._handle_stream_close(preq, True)
+            return # no response for streamclose
         hkey = _make_handler_key(req_msg)
         hval = self.handler_map.get(hkey)
         if hval == None:
@@ -511,7 +563,7 @@ class Client:
         except Exception as e:
             preq.err = repr(e);
         finally:
-            await preq.done()
+            await preq.done(swallow_error=True)
 
     async def _run_request_stream(self):
         try:
@@ -576,12 +628,9 @@ class Client:
         msg.Actions.extend(req.rr_actions)
         req.rr_actions = []
         conn_meta = (("dashborg-connid", self.conn_id),)
-        try:
-            resp = await self.db_service.SendResponse(msg, metadata=conn_meta)
-            if resp.Err is not None and resp.Err != "":
-                _log_error(f"Dashborg SendResponse error:{resp.Err}")
-        except grpc.RpcError as e:
-            _log_error(f"Dashborg SendResponse gRPC error:{e}")
+        resp = await self.db_service.SendResponse(msg, metadata=conn_meta)
+        if resp.Err is not None and resp.Err != "":
+            raise RuntimeError(f"Dashborg SendResponse error:{resp.Err}")
 
     async def _reflect_zone(self):
         m = dborgproto_pb2.ReflectZoneMessage(Ts=dashts())
@@ -625,6 +674,52 @@ class Client:
         if resp.JsonData is not None and resp.JsonData != "":
             rtn = json.loads(resp.JsonData)
         return rtn
+
+    # returns (stream_req_id, should_start)
+    async def _start_stream(self, panel_name, stream_id, fe_client_id):
+        skey = (panel_name, stream_id)
+        sc = self.stream_map.get(skey)
+        if sc is None:
+            sc = _StreamControl(panel_name, stream_id)
+        m = dborgproto_pb2.StartStreamMessage(Ts=dashts(), PanelName=panel_name, FeClientId=fe_client_id)
+        if sc.req_id is not None:
+            m.ExistingReqId = sc.req_id
+        conn_meta = (("dashborg-connid", self.conn_id),)
+        resp = await self.db_service.StartStream(m, metadata=conn_meta)
+        if resp.Err is not None and resp.Err != "":
+            raise RuntimeError(f"Error starting stream err:{resp.Err}")
+        if not resp.Success:
+            raise RuntimeError(f"Error starting stream")
+        if sc.req_id is not None and sc.req_id != resp.ReqId:
+            raise RuntimeError(f"Error starting stream, returned req_id:{resp.ReqId} does not match existing req_id:{sc.req_id}")
+        if sc.req_id is not None:
+            return sc.req_id, False
+        sc.req_id = resp.ReqId
+        self.stream_map[skey] = sc
+        self.stream_key_map[sc.req_id] = skey
+        return resp.ReqId, True
+
+    def _set_stream_task(self, panel_name, stream_id, stream_task):
+        skey = (panel_name, stream_id)
+        sc = self.stream_map.get(skey)
+        if sc is None:
+            return
+        sc.stream_task = stream_task
+        return
+
+    def _handle_stream_close(self, preq, cancel_task=True):
+        skey = self.stream_key_map.get(preq.req_id)
+        if skey is None:
+            return
+        sc = self.stream_map.get(skey)
+        if sc is None:
+            _log_info(f"No stream found for key:{skey}")
+            return
+        if cancel_task and sc.stream_task is not None:
+            sc.stream_task.cancel()
+        self.stream_map.pop(skey)
+        self.stream_key_map.pop(preq.req_id)
+        return
         
 
 async def start_proc_client(config):
