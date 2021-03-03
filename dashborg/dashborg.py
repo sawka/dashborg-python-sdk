@@ -319,13 +319,15 @@ class PanelRequest:
         self._append_rr(rr_action)
         return
 
-    async def set_blob_data(self, path, mime_type, aio_file):
+    async def set_blob_data(self, path, mime_type, readable):
         if self.is_done:
             raise RuntimeError(f"Cannot call set_blob_data(), path={path} mime-type={mime_type}, PanelRequest is already done")
         # validate mime-type
         first = True
         while True:
-            buffer = await aio_file.read(BLOB_READ_SIZE)
+            buffer = readable.read(BLOB_READ_SIZE)
+            if inspect.isawaitable(buffer):
+                buffer = await buffer
             if len(buffer) == 0:
                 break
             rr_action = dborgproto_pb2.RRAction(Ts=dashts(), Selector=path, BlobBytes=buffer)
