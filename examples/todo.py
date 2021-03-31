@@ -21,7 +21,7 @@ class TodoModel:
         self.next_id += 1
         self.todo_list.append(todo)
         req.invalidate_data("/get-todo-list")
-        req.set_data("$.state.newtodo", None)
+        req.set_data("$state.newtodo", None)
         return
 
     async def mark_todo_done(self, req):
