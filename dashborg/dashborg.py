@@ -800,8 +800,8 @@ def panel_link(panel_name):
     acc_id = _global_client.config.acc_id
     zone_name = _global_client.config.zone_name
     if _global_client.config.env != "prod":
-        return f"http://console.dashborg.localdev:8080/acc/{acc_id}/{zone_name}/{panel_name}"
-    return f"https://console.dashborg.net/acc/{acc_id}/{zone_name}/{panel_name}"
+        return f"http://acc-{acc_id}.console.dashborg.localdev:8080/zone/{zone_name}/{panel_name}"
+    return f"https://acc-{acc_id}.console.dashborg.net/zone/{zone_name}/{panel_name}"
 
 async def register_data_handler(panel_name, path, handler_fn):
     hkey = dborgproto_pb2.HandlerKey(PanelName=panel_name, HandlerType="data", Path=path)

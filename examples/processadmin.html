@@ -26,8 +26,17 @@
       </div>
     </d-col>
   </d-table>
-  
-  <d-modal title="File Output" afterclosehandler="$.fileoutput = null;" bindvalue="$state.fileoutput_modal" style="max-height: 75%;" closeicon>
+
+  <include template="FileOutputModal"/>
+  <include template="ErrorModal"/>
+  <include template="PSOutputModal"/>
+  <include template="TaskInfoModal"/>
+  <include template="VerifyProcessInfoModal"/>
+
+</panel>
+
+<d-template name="FileOutputModal">
+  <d-modal title="File Output" afterclosehandler="$.fileoutput = null;" bindvalue="$.fileoutput" style="max-height: 75%;" closeicon>
     <div class="content col">
       <h4>
         <d-text bind="$.fileoutput.filename"/> - File Size: <d-text format="%d" bind="$.fileoutput.size"/>
@@ -35,13 +44,25 @@
           (Showing last <d-text bind="fn:len($.fileoutput.content)"/> bytes)
         </span>
       </h4>
+      <d-children bind="@children.byslot.first">No First Slot</d-children>
       <pre class="dark" style="min-height: 300px; padding: 10px; overflow-y: scroll; max-height: 70vh;"><d-text bind="$.fileoutput.content"/></pre>
     </div>
     <div class="actions">
       <d-button handler="/get-task-output($.fileoutput.task_id)">Refresh</d-button>
     </div>
   </d-modal>
+</d-template>
 
+
+<d-template name="ErrorModal">
+  <d-modal title="Error" afterclosehandler="$.error_modal = null;" bindvalue="$state.error_modal" style="max-height: 80%; max-width: 500px;" closeicon>
+    <div class="content">
+      <d-text bind="$state.error_modal"/>
+    </div>
+  </d-modal>
+</d-template>
+
+<d-template name="PSOutputModal">
   <d-modal title="PS Output" afterclosehandler="$.psoutput = null;" bindvalue="$.psoutput" style="max-height: 75%;" closeicon>
     <div class="content col">
       <h4>
@@ -57,13 +78,9 @@
       </div>
     </div>
   </d-modal>
+</d-template>
 
-  <d-modal title="Error" afterclosehandler="$state.error_modal = null;" bindvalue="$state.error_modal" style="max-height: 80%; max-width: 500px;" closeicon>
-    <div class="content">
-      <d-text bind="$state.error_modal"/>
-    </div>
-  </d-modal>
-
+<d-template name="TaskInfoModal">
   <d-modal title="*'Task Info - ' + $.taskinfo.name" afterclosehandler="$.taskinfo = null" bindvalue="$.taskinfo" style="max-height:80%; max-width: 600px;" closeicon>
     <div class="content">
       <d-message style="width: 100%;">
@@ -72,7 +89,9 @@
       </d-message>
     </div>
   </d-modal>
+</d-template>
 
+<d-template name="VerifyProcessInfoModal">
   <d-modal title="Verify Process Info" afterclosehandler="$.pidinfo = null" bindvalue="$.pidinfo" style="max-height: 80%; width: 650px;" closeicon>
     <div class="content">
       <d-message style="width: 100%;">
@@ -86,12 +105,11 @@
     </div>
     <div class="actions row">
       <d-button class-button="red" disabled="*$.pidinfo.no_proc" handler="/kill-task($.pidinfo.task_id)">Kill</d-button>
-      <d-button class-button="red" disabled="*$.pidinfo.no_proc" handler="/kill-task-dash9($.pidinfo.task_id)">Kill -9</d-button>
+      <d-button class-button="red" disabled="*$.pidinfo.no_proc" handler="/kill-task-9($.pidinfo.task_id)">Kill -9</d-button>
       <d-button style="margin-left: 30px;" class-button="black" disabled="*$.pidinfo.no_proc" handler="/unlink-task($.pidinfo.task_id)">Unlink</d-button>
       <div style="grow;"/>
       <d-button handler="@task_id = $.pidinfo.task_id; $.pidinfo = {}; /get-running-task-info(@task_id)">Refresh Info</d-button>
       <d-button handler="$.pidinfo = null;">Cancel</d-button>
     </div>
   </d-modal>
-
-</panel>
+</d-template>

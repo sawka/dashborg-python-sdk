@@ -140,8 +140,9 @@ class TaskDef:
 
 
 class AdminModel:
-    def __init__(self):
+    def __init__(self, *, demo_mode=None):
         self.tasks = []
+        self.demo_mode = True if demo_mode is not None else False
         pass
 
     def add_task(self, task):
@@ -183,7 +184,7 @@ class AdminModel:
                 sig = "KILL" if dash9 else "TERM"
                 req.set_data("$.pidinfo.emsg", f"Process still running after {sig}")
         except Exception as e:
-            req.set_data("$state.error_modal", "Error killing task " + repr(e))
+            req.set_data("$.error_modal", "Error killing task " + repr(e))
 
     async def kill_task_dash9(self, req):
         await self.kill_task(req, True)
@@ -212,13 +213,12 @@ class AdminModel:
         task = self.find_task(req.data)
         output, fsize = task.get_log_contents(10000)
         if output is None:
-            req.set_data("$state.error_modal", "Logfile does not exist")
+            req.set_data("$.error_modal", "Logfile does not exist")
             return
         req.set_data("$.fileoutput.task_id", task.task_id)
         req.set_data("$.fileoutput.filename", task.external_logfile)
         req.set_data("$.fileoutput.size", fsize)
         req.set_data("$.fileoutput.content", output)
-        req.set_data("$state.fileoutput_modal", True)
         return
 
     async def get_ps_output(self, req):
@@ -234,7 +234,7 @@ async def main():
     parser.add_argument("--panel", help="Override Dashborg panel name (default=processadmin)")
     parser.add_argument("--demo", help="Demo Mode (disables unlink and kill -9)")
     args = parser.parse_args()
-    m = AdminModel()
+    m = AdminModel(demo_mode=args.demo)
     if args.config is not None:
         configfd = open(args.config)
         tasks_yaml = yaml.load(configfd, Loader=yaml.SafeLoader)
@@ -260,7 +260,7 @@ async def main():
     await dashborg.register_panel_handler(panel, "/get-task-info", m.get_task_info)
     await dashborg.register_panel_handler(panel, "/get-running-task-info", m.get_running_task_info)
     await dashborg.register_panel_handler(panel, "/kill-task", m.kill_task)
-    await dashborg.register_panel_handler(panel, "/kill-task-dash9", m.kill_task_dash9)
+    await dashborg.register_panel_handler(panel, "/kill-task-9", m.kill_task_dash9)
     await dashborg.register_panel_handler(panel, "/unlink-task", m.unlink_task)
     await dashborg.register_panel_handler(panel, "/get-ps-output", m.get_ps_output)
     await dashborg.register_data_handler(panel, "/get-tasks", m.get_tasks)
