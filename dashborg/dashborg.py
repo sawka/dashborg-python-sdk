@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives.asymmetric import ec as asymec
 from .dborgproto import dborgproto_pb2_grpc
 from .dborgproto import dborgproto_pb2
 from hashlib import sha256
+import jwt
 
 TLS_KEY_FILENAME = "dashborg-client.key"
 TLS_CERT_FILENAME = "dashborg-client.crt"
@@ -27,7 +28,7 @@ DEFAULT_PROCNAME = "default"
 DEFAULT_ZONENAME = "default"
 DASHBORG_HOST = "grpc.api.dashborg.net"
 DASHBORG_PORT = 7632
-CLIENT_VERSION = "python-0.0.3"
+CLIENT_VERSION = "python-0.3.1"
 
 EC_EOF = "EOF"
 EC_UNKNOWN = "UNKNOWN"
@@ -259,7 +260,7 @@ class PanelRequest:
         raw_auth = self.auth_data
         return raw_auth is not None and len(raw_auth) > 0
 
-    def check_auth(self, *, none=False, password=None, dashborg=False):
+    def check_auth(self, *, none=False, password=None, dashborg=False, simplelogin=None, simplejwt=None):
         self.auth_impl = True
         if self._is_authenticated():
             return True
@@ -272,6 +273,45 @@ class PanelRequest:
             if challengedata is not None and challengedata.get("password") == password:
                 self._set_auth_data({"type": "password", "role": "user"})
                 return True
+        loginresp = None
+        loginresp_err = None
+        if simplelogin is not None:
+            if challengedata is not None:
+                try:
+                    loginresp = simplelogin(challengedata.get("user"), challengedata.get("password"))
+                except RuntimeError as e:
+                    loginresp_err = str(e)
+                except Exception as e:
+                    loginresp_err = repr(e)
+                if loginresp is not None and loginresp.get("login_ok"):
+                    role = loginresp.get("role") or "user"
+                    aa = {"type": "login", "role": role}
+                    if loginresp.get("id") is not None:
+                        aa["id"] = loginresp.get("id")
+                    self._set_auth_data(aa)
+                    return True
+        if simplejwt is not None:
+            if not isinstance(simplejwt, AuthSimpleJwt):
+                raise RuntimeError("simplejwt parameter must be instance of AuthSimpleJwt")
+            jwtparam = _get_pstate_urlparam(self, simplejwt.param_name)
+            if jwtparam is not None:
+                try:
+                    aa = simplejwt._parse_jwt_to_auth_atom(jwtparam)
+                    self._set_auth_data(aa)
+                    ch = {"allowedauth": "removeparam", "removeparam": simplejwt.param_name}
+                    self._append_panelauth_challenge(ch)
+                    return True
+                except RuntimeError as e:
+                    ch = {"allowedauth": "message", "removeparam": simplejwt.param_name}
+                    ch["messagetitle"] = "External Sign In Error"
+                    ch["message"] = str(e)
+                    self._append_panelauth_challenge(ch)
+                except Exception as e:
+                    ch = {"allowedauth": "message", "removeparam": simplejwt.param_name}
+                    ch["messagetitle"] = "External Sign In Error"
+                    ch["message"] = f"Error validating JWT token '{simplejwt.param_name}': {str(e)}"
+                    self._append_panelauth_challenge(ch)
+        
         # add challenges
         if dashborg:
             self._append_panelauth_challenge({"allowedauth": "dashborg"})
@@ -285,6 +325,21 @@ class PanelRequest:
                 else:
                     ch["challengeerror"] = "Invalid Password"
             self._append_panelauth_challenge(ch)
+        if simplelogin is not None:
+            ch = {"allowedauth": "challenge"}
+            ch["challengefields"] = \
+                    [{"label": "User", "name": "user", "type": "text"},
+                     {"label": "Password", "name": "password", "type": "password"}]
+            if challengedata is not None and challengedata.get("submitted") == "1":  # use loginresp from above
+                if loginresp_err is not None:
+                    ch["challengeerror"] = loginresp_err
+                else:
+                    ch["challengeerror"] = "Invalid User/Password"
+            self._append_panelauth_challenge(ch)
+        if simplejwt is not None:
+            ch = {"allowedauth": "simplejwt", "removeparam": simplejwt.param_name}
+            self._append_panelauth_challenge(ch)
+                
         return False
 
     def _get_auth_atom(self, auth_type):
@@ -855,3 +910,52 @@ def start_bare_stream(panel_name, stream_id):
     stream_req.path = stream_id
     stream_req.is_stream = True
     return stream_req
+
+
+class AuthSimpleJwt:
+    def __init__(self, *, issuer=None, param_name=None, audience=None, signing_key=None):
+        if issuer is None:
+            raise RuntimeError("AuthSimpleJwt must have an issuer")
+        if param_name is None:
+            raise RuntimeError("AuthSimpleJwt must have a param_name")
+        if signing_key is None:
+            raise RuntimeError("AuthSimpleJwt must have a signing_key")
+        self.issuer = issuer
+        self.param_name = param_name
+        self.audience = audience
+        self.signing_key = signing_key
+
+    def make_jwt(self, id_, valid_for_sec=15*60):
+        claims = {}
+        claims["exp"] = int(time.time()) + valid_for_sec
+        claims["iat"] = int(time.time()) - 5
+        claims["iss"] = self.issuer
+        if self.audience is not None:
+            claims["aud"] = self.audience
+        claims["sub"] = id_
+        return jwt.encode(claims, self.signing_key)
+
+    def _parse_jwt_to_auth_atom(self, jwtparam):
+        token = jwt.decode(jwtparam, self.signing_key, algorithms=["HS256"])
+        if token is None:
+            raise RuntimeError(f"Error Parsing JWT token '{self.param_name}'")
+        if token["iss"] != self.issuer:
+            raise RuntimeError(f"Wrong issuer for JWT token '{self.param_name}' got[{token['iss']}] expected[{self.issuer}]")
+        if self.audience is not None:
+            token_aud = token.get("aud")
+            if self.audience != token_aud:
+                raise RuntimeError(f"Wrong audience for JWT token '{self.param_name}' got[{token_aud}] expected[{self.audience}]")
+        if token.get("sub") is None:
+            raise RuntimeError(f"JWT Token '{self.params_name}' does not contain a subject")
+        role = token.get("role") or "user"
+        return {"type": "simplejwt", "id": token.get("sub"), "role": role}
+
+        
+def _get_pstate_urlparam(req, param_name):
+    if req is None or req.panel_state is None or req.panel_state.get("urlparams") is None:
+        return None
+    urlparams = req.panel_state.get("urlparams")
+    if not isinstance(urlparams, dict):
+        return None
+    return urlparams.get(param_name)
+    
