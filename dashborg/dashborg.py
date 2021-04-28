@@ -158,6 +158,28 @@ class Config:
         _create_key_pair(self.key_file_name, self.cert_file_name, acc_id)
         print(f"Dashborg created new self-signed keypair key:{self.key_file_name} cert:{self.cert_file_name} for new accountid:{acc_id}")
 
+    def make_account_jwt(self, valid_for_sec, id_, role="user"):
+        self._set_defaults()
+        self._load_keys()
+        pk_bytes = open(self.key_file_name, "rb").read()
+        print(f"pk bytes {pk_bytes}")
+        private_key = serialization.load_pem_private_key(pk_bytes, None, default_backend())
+        claims = {}
+        claims["iss"] = "dashborg"
+        claims["exp"] = int(time.time()) + valid_for_sec
+        claims["iat"] = int(time.time()) - 5
+        claims["jti"] = str(uuid.uuid4())
+        claims["dash-acc"] = self.acc_id
+        if id_ is None:
+            claims["aud"] = "dashborg-csrf"
+        else:
+            claims["aud"] = "dashborg-auth"
+            claims["sub"] = id_
+            claims["role"] = role
+        jwtstr = jwt.encode(claims, private_key, algorithm="ES384")
+        return jwtstr
+    
+
 def _create_key_pair(keyfile, certfile, acc_id):
     private_key = asymec.generate_private_key(asymec.SECP384R1, default_backend())
     public_key = private_key.public_key()
@@ -195,7 +217,7 @@ def _read_cert_info(cert_file):
     pkbytes = pk.public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
     pkdigest = sha256(pkbytes)
     pk256_base64 = base64.standard_b64encode(pkdigest.digest()).decode("ascii")
-    return {"acc_id": acc_id, "pk256": pk256_base64}
+    return {"acc_id": acc_id, "pk256": pk256_base64, "pubkey": pk}
 
 class PanelRequest:
     def __init__(self):
@@ -260,7 +282,7 @@ class PanelRequest:
         raw_auth = self.auth_data
         return raw_auth is not None and len(raw_auth) > 0
 
-    def check_auth(self, *, none=False, password=None, dashborg=False, simplelogin=None, simplejwt=None):
+    def check_auth(self, *, none=False, password=None, dashborg=False, simplelogin=None, simplejwt=None, accountjwt=None):
         self.auth_impl = True
         if self._is_authenticated():
             return True
@@ -294,7 +316,7 @@ class PanelRequest:
             if not isinstance(simplejwt, AuthSimpleJwt):
                 raise RuntimeError("simplejwt parameter must be instance of AuthSimpleJwt")
             jwtparam = _get_pstate_urlparam(self, simplejwt.param_name)
-            if jwtparam is not None:
+            if jwtparam is not None and jwtparam != "":
                 try:
                     aa = simplejwt._parse_jwt_to_auth_atom(jwtparam)
                     self._set_auth_data(aa)
@@ -310,6 +332,36 @@ class PanelRequest:
                     ch = {"allowedauth": "message", "removeparam": simplejwt.param_name}
                     ch["messagetitle"] = "External Sign In Error"
                     ch["message"] = f"Error validating JWT token '{simplejwt.param_name}': {str(e)}"
+                    self._append_panelauth_challenge(ch)
+        if accountjwt is not None:
+            if not isinstance(accountjwt, AuthAccountJwt):
+                raise RuntimeError("accountjwt parameter must be instance of AuthAccountJwt")
+            jwtparam = None
+            if accountjwt.param_name is not None:
+                jwtparam = _get_pstate_urlparam(self, accountjwt.param_name)
+            else:
+                jwtparam = _get_pstate_dbreqparam(self, "embedauthtoken")
+            if jwtparam is not None and jwtparam != "":
+                try:
+                    aa = accountjwt._parse_jwt_to_auth_atom(jwtparam)
+                    self._set_auth_data(aa)
+                    if accountjwt.param_name is not None:
+                        ch = {"allowedauth": "removeparam", "removeparam": accountjwt.param_name}
+                        self._append_panelauth_challenge(ch)
+                    return True
+                except RuntimeError as e:
+                    ch = {"allowedauth": "message"}
+                    if accountjwt.param_name is not None:
+                        ch["removeparam"] = accountjwt.param_name
+                    ch["messagetitle"] = "External Sign In Error"
+                    ch["message"] = str(e)
+                    self._append_panelauth_challenge(ch)
+                except Exception as e:
+                    ch = {"allowedauth": "message"}
+                    if accountjwt.param_name is not None:
+                        ch["removeparam"] = accountjwt.param_name
+                    ch["messagetitle"] = "External Sign In Error"
+                    ch["message"] = f"Error validating Account JWT token: {str(e)}"
                     self._append_panelauth_challenge(ch)
         
         # add challenges
@@ -338,6 +390,11 @@ class PanelRequest:
             self._append_panelauth_challenge(ch)
         if simplejwt is not None:
             ch = {"allowedauth": "simplejwt", "removeparam": simplejwt.param_name}
+            self._append_panelauth_challenge(ch)
+        if accountjwt is not None:
+            ch = {"allowedauth": "accountjwt"}
+            if accountjwt.param_name is not None:
+                ch["removeparam"] = accountjwt.param_name
             self._append_panelauth_challenge(ch)
                 
         return False
@@ -855,7 +912,7 @@ def panel_link(panel_name):
     acc_id = _global_client.config.acc_id
     zone_name = _global_client.config.zone_name
     if _global_client.config.env != "prod":
-        return f"http://acc-{acc_id}.console.dashborg.localdev:8080/zone/{zone_name}/{panel_name}"
+        return f"https://acc-{acc_id}.console.dashborg-dev.com:8080/zone/{zone_name}/{panel_name}"
     return f"https://acc-{acc_id}.console.dashborg.net/zone/{zone_name}/{panel_name}"
 
 async def register_data_handler(panel_name, path, handler_fn):
@@ -911,6 +968,20 @@ def start_bare_stream(panel_name, stream_id):
     stream_req.is_stream = True
     return stream_req
 
+class AuthAccountJwt:
+    def __init__(self, *, param_name=None):
+        self.param_name = param_name
+
+    def _parse_jwt_to_auth_atom(self, jwtparam):
+        if _global_client is None or _global_client.config is None:
+            raise RuntimeError("Dashborg client must be running to parse Account JWT")
+        cert_info = _read_cert_info(_global_client.config.cert_file_name)
+        token = jwt.decode(jwtparam, cert_info["pubkey"], algorithms=["ES384"], options={"verify_aud": False})
+        token_aud = token.get("aud")
+        if token_aud != "dashborg-auth":
+            raise RuntimeError(f"Wrong audience for Account JWT got[{token_aud}] expected[dashborg-auth]")
+        role = token.get("role") or "user"
+        return {"type": "accountjwt", "id": token.get("sub"), "role": role}
 
 class AuthSimpleJwt:
     def __init__(self, *, issuer=None, param_name=None, audience=None, signing_key=None):
@@ -936,7 +1007,7 @@ class AuthSimpleJwt:
         return jwt.encode(claims, self.signing_key)
 
     def _parse_jwt_to_auth_atom(self, jwtparam):
-        token = jwt.decode(jwtparam, self.signing_key, algorithms=["HS256"])
+        token = jwt.decode(jwtparam, self.signing_key, algorithms=["HS256"], options={"verify_aud": False})
         if token is None:
             raise RuntimeError(f"Error Parsing JWT token '{self.param_name}'")
         if token["iss"] != self.issuer:
@@ -958,4 +1029,12 @@ def _get_pstate_urlparam(req, param_name):
     if not isinstance(urlparams, dict):
         return None
     return urlparams.get(param_name)
+
+def _get_pstate_dbreqparam(req, param_name):
+    if req is None or req.panel_state is None or req.panel_state.get("dbrequest") is None:
+        return None
+    dbrequest = req.panel_state.get("dbrequest")
+    if not isinstance(dbrequest, dict):
+        return None
+    return dbrequest.get(param_name)
     
