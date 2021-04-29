@@ -28,7 +28,7 @@ DEFAULT_PROCNAME = "default"
 DEFAULT_ZONENAME = "default"
 DASHBORG_HOST = "grpc.api.dashborg.net"
 DASHBORG_PORT = 7632
-CLIENT_VERSION = "python-0.3.1"
+CLIENT_VERSION = "python-0.3.2"
 
 EC_EOF = "EOF"
 EC_UNKNOWN = "UNKNOWN"
