@@ -22,13 +22,21 @@ from .dborgproto import dborgproto_pb2
 from hashlib import sha256
 import jwt
 
+try:
+    import dataclasses
+except ImportError:
+    # Python < 3.7
+    dataclasses = None  # type: ignore
+
+
 TLS_KEY_FILENAME = "dashborg-client.key"
 TLS_CERT_FILENAME = "dashborg-client.crt"
 DEFAULT_PROCNAME = "default"
 DEFAULT_ZONENAME = "default"
 DASHBORG_HOST = "grpc.api.dashborg.net"
 DASHBORG_PORT = 7632
-CLIENT_VERSION = "python-0.3.2"
+CLIENT_VERSION = "python-0.3.3"
+USE_REQ_DEFAULT = object()
 
 EC_EOF = "EOF"
 EC_UNKNOWN = "UNKNOWN"
@@ -60,6 +68,55 @@ _dblogger = logging.getLogger("dashborg")
 
 def dashts():
     return int(round(time.time()*1000))
+
+def recursive_serialize(obj, sfn):
+    obj = sfn(obj)
+    if obj is None:
+        return None
+    elif isinstance(obj, (str, int, float, bool, bytes)):
+        return obj
+    elif isinstance(obj, dict):
+        data = {}
+        for (k, v) in obj.items():
+            if not callable(v):
+                data[k] = recursive_serialize(v, sfn)
+        return data
+    elif hasattr(obj, "__iter__"):
+        return [recursive_serialize(v, sfn) for v in obj]
+    return obj
+
+def serialize(obj):
+    if isinstance(obj, dict):
+        return obj
+    elif isinstance(obj, str):
+        return obj
+    elif isinstance(obj, uuid.UUID):
+        return str(obj)
+    elif dataclasses and dataclasses.is_dataclass(obj):
+        return dataclasses.asdict(obj)
+    elif isinstance(obj, datetime.datetime):
+        return int(round(obj.timestamp()*1000))
+    elif isinstance(obj, datetime.date):
+        return str(obj)
+    elif hasattr(obj, "to_dict"):
+        return obj.to_dict()
+    elif hasattr(obj, "__dict__"):
+        data = {}
+        for (k, v) in obj.__dict__.items():
+            if not k.startswith("_"):
+                data[k] = v
+        return data
+    elif hasattr(obj, '__slots__'):
+        data = {}
+        for name in getattr(obj, '__slots__'):
+            if not name.startswith("_"):
+                data[name] = getattr(obj, name)
+        return data
+    elif hasattr(obj, "_asdict"):
+        return obj._asdict()
+    elif hasattr(obj, "_ast"):
+        return obj._ast()
+    return obj
 
 def _default_string(*args):
     for s in args:
@@ -162,7 +219,6 @@ class Config:
         self._set_defaults()
         self._load_keys()
         pk_bytes = open(self.key_file_name, "rb").read()
-        print(f"pk bytes {pk_bytes}")
         private_key = serialization.load_pem_private_key(pk_bytes, None, default_backend())
         claims = {}
         claims["iss"] = "dashborg"
@@ -236,6 +292,7 @@ class PanelRequest:
         self.auth_impl = False
         self.is_backend_call = False
         self.is_stream = False
+        self.opts = {"serialize": serialize, "jsondumps": json.dumps, "jsondumpskwargs": {}}
 
     def _set_from_reqmsg(self, req_msg):
         self.panel_name = req_msg.PanelName
@@ -263,6 +320,12 @@ class PanelRequest:
 
     def _append_rr(self, rr):
         self.rr_actions.append(rr)
+
+    def _has_rawdata_action(self):
+        for rr in self.rr_actions:
+            if rr.ActionType == "setdata" and (rr.Selector is None or rr.Selector == ""):
+                return True
+        return False
 
     def _is_root_req(self):
         return self.request_type == "handler" and self.panel_name is not None and self.path == "/"
@@ -423,10 +486,21 @@ class PanelRequest:
         self._append_rr(rr_action)
         pass
 
-    def set_data(self, path, data):
+    def _tojson(self, data, *, serialize=USE_REQ_DEFAULT, jsondumps=None, raw_json=None, jsondumpskwargs=None):
+        if raw_json is not None:
+            return str(raw_json)
+        serialize = self.opts["serialize"] if serialize == USE_REQ_DEFAULT else serialize
+        jsondumps = self.opts["jsondumps"] if jsondumps is None else jsondumps
+        jsondumpskwargs = self.opts["jsondumpskwargs"] if jsondumpskwargs is None else jsondumpskwargs
+        if serialize is not None:
+            data = recursive_serialize(data, serialize)
+        json_data = jsondumps(data, **jsondumpskwargs)
+        return json_data
+
+    def set_data(self, path, data, *, serialize=USE_REQ_DEFAULT, jsondumps=None, raw_json=None, jsondumpskwargs=None):
         if self.is_done:
             raise RuntimeError(f"Cannot call set_data(), path={path}, PanelRequest is already done")
-        json_data = json.dumps(data)
+        json_data = self._tojson(data, serialize=serialize, jsondumps=jsondumps, raw_json=raw_json, jsondumpskwargs=jsondumpskwargs)
         rr_action = dborgproto_pb2.RRAction(Ts=dashts(), ActionType="setdata", Selector=path, JsonData=json_data)
         self._append_rr(rr_action)
         return
@@ -681,8 +755,10 @@ class Client:
             else:
                 rtnval = hval.handler_fn(preq)
             if req_msg.RequestType == "data":
-                rr_action = dborgproto_pb2.RRAction(Ts=dashts(), ActionType="setdata", JsonData=json.dumps(rtnval))
-                preq._append_rr(rr_action)
+                if rtnval is not None or not preq._has_rawdata_action():
+                    json_data = preq._tojson(rtnval)
+                    rr_action = dborgproto_pb2.RRAction(Ts=dashts(), ActionType="setdata", JsonData=json_data)
+                    preq._append_rr(rr_action)
         except Exception as e:
             preq.err = repr(e);
         finally:
