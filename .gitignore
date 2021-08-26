@@ -8,3 +8,6 @@ env/
 *.egg-info/
 dist/
 build/
+*.jpg
+*.log
+*.pid
