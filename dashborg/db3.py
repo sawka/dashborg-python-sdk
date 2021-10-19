@@ -264,7 +264,6 @@ class Client:
                 if not jsonresp.get("data"):
                     raise DashborgError(f"Cannot get gRPC Server Host (empty response)")
                 grpcdata = jsonresp.get("data")
-                print(f"got resp: {grpcdata}")
                 if grpcdata.get("grpcserver") is None or grpcdata.get("grpcport") is None:
                     raise DashborgError(f"Cannot get gRPC Server Host (bad response)")
                 self.config.grpc_host = grpcdata.get("grpcserver")
@@ -468,7 +467,6 @@ class Client:
         if fileopts.allowedroles is None:
             fileopts.allowedroles = ["user"]
         fileopts_json = dbu.tojson(fileopts)
-        print(f"fileopts_json: {fileopts_json}")
         msg = dborgproto_pb2.SetPathMessage(
             Ts=dbu.dashts(),
             Path=path,
@@ -501,11 +499,9 @@ class Client:
         print(f"STREAM {stream}")
         async with aiohttp.ClientSession(timeout=http_timeout) as session:
             async with session.post("https://console.dashborg-dev.com:8080/api2/raw-upload", data=stream, headers=headers) as resp:
-                print(f"upload {resp}")
                 if not resp.ok:
                     raise DashborgError(f"HTTP Error calling raw-upload status:{resp.status_code} reason:{resp.reason}")
                 jsonresp = await resp.json()
-                print(f"JSONRESP {jsonresp}")
                 if not jsonresp.get("success"):
                     msg = jsonresp.get("error")
                     if msg is None:
@@ -601,15 +597,17 @@ class FSClient:
         fileopts.filetype = "static"
         await self.set_raw_path(path, fileopts, stream=stream)
 
-    async def set_static_path(self, path, *, fileopts=None, strval=None, bytesval=None, stream=None, file_name=None):
-        if stream is not None:
+    async def set_static_path(self, path, *, fileopts=None, strval=None, bytesval=None, stream=None, file_name=None, watch=False):
+        if watch and file_name is None:
+            raise ValueError("set_static_path: can only set watch with a file_name")
+        if file_name is not None:
+            stream = await aiofiles.open(file_name, "rb")
+        elif stream is not None:
             pass
         elif strval is not None:
             stream = io.StringIO(strval)
         elif bytesval is not None:
             stream = io.BytesIO(bytesval)
-        elif file_name is not None:
-            stream = await aiofiles.open(file_name, "rb")
         if stream is None:
             raise ValueError("set_static_path: Must provide strval, bytesval, file_name or stream")
         if fileopts is None:
@@ -619,6 +617,11 @@ class FSClient:
         fileopts.filetype = "static"
         await update_fileopts_from_stream(stream, fileopts)
         await self.set_raw_path(path, fileopts, stream=stream)
+        if watch:
+            async def watch_callback():
+                await self.set_static_path(path, fileopts=fileopts, file_name=file_name)
+                return
+            watch_file(file_name, asyncio.get_running_loop(), watch_callback)
 
     async def link_runtime(self, path, runtime, fileopts=None):
         if fileopts is None:
@@ -659,7 +662,6 @@ class AppClient:
 
     async def write_app(self, app, connect=False):
         app_config = app.get_app_config()
-        print(f"app config: {app_config}")
         if connect and app.has_external_runtime():
             raise ValueError(f"App has an external runtime path '{app.get_runtime_path()}', cannot connect")
         if connect and app_config.get("runtimepath") is None:
@@ -673,7 +675,7 @@ class AppClient:
         html_path = app_config.get("htmlpath")
         if (html_path is not None) and app._has_static_html():
             html_fileopts = FileOpts(mimetype="text/html", allowedroles=roles)
-            await fs.set_static_path(html_path, fileopts=html_fileopts, strval=app.html_str, file_name=app.html_file_name, stream=app.html_stream)
+            await fs.set_static_path(html_path, fileopts=html_fileopts, strval=app.html_str, file_name=app.html_file_name, stream=app.html_stream, watch=app.html_watch)
         if connect:
             runtime_path = app_config.get("runtimepath")
             runtime_fileopts = FileOpts(allowedroles=roles)
@@ -1010,6 +1012,7 @@ class App:
         return self.get_app_path() + "/_/runtime"
 
     def _clear_html_opts(self):
+        self.html_watch = False
         self.html_str = None
         self.html_file_name = None
         self.html_from_runtime = False
@@ -1022,13 +1025,16 @@ class App:
     def set_app_title(self, title):
         self.config["apptitle"] = title
 
-    def set_html(self, *, html=None, file_name=None, path=None, runtime=False, stream=None):
+    def set_html(self, *, html=None, file_name=None, path=None, runtime=False, stream=None, watch=False):
+        if watch and file_name is None:
+            raise ValueError("set_html: can only set watch with a file_name")
         self._clear_html_opts()
-        if html is not None:
-            self.html_str = html
-            return
         if file_name is not None:
             self.html_file_name = file_name
+            self.html_watch = watch
+            return
+        if html is not None:
+            self.html_str = html
             return
         if path is not None:
             self.html_ext_path = path
@@ -1049,21 +1055,28 @@ class App:
         return FSClient(self.client, root_path=self.get_app_path())
 
 class _WatchdogHandler(FileSystemEventHandler):
-    def __init__(self, file_path):
+    def __init__(self, file_path, loop, callback_fn):
         self.file_path = file_path
+        self.loop = loop
+        self.callback_fn = callback_fn
     
     def on_modified(self, event):
         if event.src_path != self.file_path:
             return
-        print(f"watchdog modified ok {event}")
+        print(f"modified callback:{self.callback_fn} iscoroutine:{inspect.iscoroutinefunction(self.callback_fn)}")
+        if inspect.iscoroutinefunction(self.callback_fn):
+            cor = self.callback_fn()
+            asyncio.run_coroutine_threadsafe(cor, self.loop)
+        else:
+            self.loop.call_soon_threadsafe(self.callback_fn)
 
 
-def watch_file(file_name, callback_fn):
+def watch_file(file_name, loop, callback_fn):
     global watchdog_observer
     if watchdog_observer is None:
         watchdog_observer = WatchdogObserver()
         watchdog_observer.start()
     esc_file_name = glob.escape(os.path.abspath(file_name))
     dir_name = os.path.dirname(esc_file_name)
-    handler = _WatchdogHandler(esc_file_name)
+    handler = _WatchdogHandler(esc_file_name, loop, callback_fn)
     watchdog_observer.schedule(handler, dir_name, recursive=False)
