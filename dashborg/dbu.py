@@ -6,6 +6,7 @@ import uuid
 import io
 import datetime
 import re
+from functools import reduce
 from hashlib import sha256
 import base64
 from cryptography import x509
@@ -228,3 +229,8 @@ def make_app_path(app_name, zone_name="default"):
     if app_name == "default":
         return f"/zone/{zone_name}"
     return f"/zone/{zone_name}/app/{app_name}"
+
+def recursive_get(rootdict, *keys):
+    if rootdict is None:
+        return None
+    return reduce(lambda d, key: d.get(key, {}), keys, rootdict)

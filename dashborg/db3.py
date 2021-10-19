@@ -107,6 +107,7 @@ class Config:
         self.jwt_opts = jwt_opts
         self.no_jwt = no_jwt
         self.setup_done = False
+        self.json_opts = {"serializefn": dbu.serialize, "jsondumps": json.dumps, "jsondumpskwargs": {}}
 
     def _setup(self):
         if not self.setup_done:
@@ -833,20 +834,23 @@ class AppRequest:
         self.rr_actions = []
         self.is_done = False
         self.is_app_request = reqmsg.AppRequest
+        self.auth_atom = None
         if reqmsg.AuthData:
             self.auth_atom = json.loads(reqmsg.AuthData)
+        self.app_state = None
         if reqmsg.AppStateData:
             self.app_state = json.loads(reqmsg.AppStateData)
+        self.data = None
         if reqmsg.JsonData:
             self.data = json.loads(reqmsg.JsonData)
-        self.json_opts = {"serializefn": dbu.serialize, "jsondumps": json.dumps, "jsondumpskwargs": {}}
+        self.json_opts = client.config.json_opts
 
     def set_data(self, path, data):
         if not self.is_app_request:
             raise RuntimeError(f"Cannot call set_data, path={path}, in pure_handler (only for app requests)")
         if self.is_done:
             raise RuntimeError(f"Cannot call set_data, path={path}, Request is already done")
-        jsondata = dbu.tojson(data, serializefn=self.json_opts.get("serializefn"), jsondumps=self.json_opts.get("jsondumps"), jsondumpskwargs=self.json_opts.get("jsondumpskwargs"))
+        jsondata = dbu.tojson(data, **self.json_opts)
         rr = dborgproto_pb2.RRAction(
             Ts=dbu.dashts(),
             ActionType="setdata",
@@ -860,6 +864,23 @@ class AppRequest:
             raise RuntimeError(f"Cannot call invalidate_data(), path={path}, Request is already done")
         rr = dborgproto_pb2.RRAction(Ts=dbu.dashts(), ActionType="invalidate", Selector=path_regexp_str)
         self.rr_actions.append(rr)
+
+    def set_html_page(self, html_page):
+        self.set_data("$state.dashborg.htmlpage", html_page)
+
+    def nav_to_page(self, page_naame, params=None):
+        rr = dborgproto_pb2.RRAction(
+            Ts=dbu.dashts(),
+            ActionType="navto",
+            Selector=page_name,
+        )
+        if params is not None:
+            json_data = dbu.tojson(params, **self.json_opts)
+            rr.JsonData = json_data
+        self.rr_actions.append(rr)
+
+    def get_page_name(self):
+        return dbu.recursive_get(self.app_state, "dashborg", "apppage")
         
 
 def _err_to_errortype(e):
@@ -1018,6 +1039,9 @@ class App:
         self.html_from_runtime = False
         self.html_ext_path = None
         self.html_stream = None
+
+    def set_pages_enabled(self, enabled):
+        self.config["pagesenabled"] = enabled
 
     def set_allowed_roles(self, *roles):
         self.config["allowedroles"] = roles
