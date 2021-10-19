@@ -220,3 +220,11 @@ def is_app_name_valid(s):
     match = _app_name_re.match(s)
     return match is not None
     
+def make_app_path(app_name, zone_name="default"):
+    if zone_name == "default" and app_name == "default":
+        return "/"
+    if zone_name == "default":
+        return f"/app/{app_name}"
+    if app_name == "default":
+        return f"/zone/{zone_name}"
+    return f"/zone/{zone_name}/app/{app_name}"

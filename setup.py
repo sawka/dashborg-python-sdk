@@ -29,6 +29,7 @@ setuptools.setup(
         'pycparser',
         'six',
         'pyjwt',
+        'requests',
     ],
     python_requires='>=3.6',
 )

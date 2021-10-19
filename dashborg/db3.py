@@ -82,7 +82,7 @@ _dblogger = logging.getLogger("dashborg")
 _default_jwt_opts = {"valid_for_sec": DEFAULT_JWT_VALID_FOR_SEC, "role": DEFAULT_JWT_ROLE, "user_id": DEFAULT_JWT_USER_ID}
 
 class Config:
-    def __init__(self, acc_id=None, anon_acc=None, zone_name=None, proc_name=None, proc_ikey=None, proc_tags=None, key_file_name=None, cert_file_name=None, auto_keygen=None, verbose=None, env=None, console_host=None, grpc_host=None, grpc_port=None, use_logger=False, allow_backend_calls=False, jwt_opts=None):
+    def __init__(self, acc_id=None, anon_acc=None, zone_name=None, proc_name=None, proc_ikey=None, proc_tags=None, key_file_name=None, cert_file_name=None, auto_keygen=None, verbose=None, env=None, console_host=None, grpc_host=None, grpc_port=None, use_logger=False, allow_backend_calls=False, jwt_opts=None, no_jwt=False):
         self.acc_id = acc_id
         self.anon_acc = anon_acc
         self.zone_name = zone_name
@@ -100,6 +100,7 @@ class Config:
         self.use_logger = use_logger
         self.allow_backend_calls = allow_backend_calls
         self.jwt_opts = jwt_opts
+        self.no_jwt = no_jwt
         self.setup_done = False
 
     def _setup(self):
@@ -395,12 +396,11 @@ class Client:
             rt = self.linkrt_map.get(rtpath)
             if rt is None:
                 raise DashborgError("No Linked Runtime")
-            rtnval = rt.run_handler(preq)
+            rtnval = await rt.run_handler(preq)
         except Exception as e:
             self._log_error(f"Dashborg Exception in Handler {dbu.simplify_path(reqmsg.Path)} | {str(e)}")
             if preq.err is None:
                 preq.err = e
-            # ***
             self._log_error(traceback.format_exc())
         finally:
             await self._send_request_response(preq, rtnval, reqmsg.AppRequest)
@@ -420,6 +420,9 @@ class Client:
 
     def global_fs_client(self):
         return FSClient(self)
+
+    def app_client(self):
+        return AppClient(self)
 
     def _log_info(self, *args):
         if self.config.use_logger:
@@ -448,13 +451,13 @@ class Client:
         if fileopts is None:
             raise ValueError("SetRawPath fileopts must be set")
         if not isinstance(fileopts, FileOpts):
-            raise TypeError("SetRawPath fileopts must type dashborg.FileOpts")
+            raise TypeError("set_raw_path fileopts must type dashborg.FileOpts")
         if fileopts.filetype == "static" and stream is None:
-            raise ValueError("SetRawPath requires a stream when filetype=static")
+            raise ValueError("set_raw_path requires a stream when filetype=static")
         if fileopts.filetype != "static" and stream is not None:
-            raise ValueError("SetRawPath does not allow a stream unless filetype=static")
+            raise ValueError("set_raw_path does not allow a stream unless filetype=static")
         if not fileopts.is_link_type() and runtime is not None:
-            raise ValueError(f"SetRawPath filetype is {fileopts.filetype}, no runtime allowed")
+            raise ValueError(f"set_raw_path filetype is {fileopts.filetype}, no runtime allowed")
         if fileopts.allowedroles is None:
             fileopts.allowedroles = ["user"]
         fileopts_json = dbu.tojson(fileopts)
@@ -538,7 +541,7 @@ class Client:
         return self.exit_err
 
 class FileOpts:
-    def __init__(self, filetype=None, sha256=None, size=None, mimetype=None, allowedroles=["user"], editroles=None, display=None, metadata_json=None, metadata=None, description=None, mkdirs=False, hidden=False, app_config_json=None):
+    def __init__(self, filetype=None, sha256=None, size=None, mimetype=None, allowedroles=["user"], editroles=None, display=None, metadata_json=None, metadata=None, description=None, mkdirs=False, hidden=False, appconfig=None):
         self.filetype = filetype
         self.sha256 = sha256
         self.size = size
@@ -552,7 +555,7 @@ class FileOpts:
             self.metadata = metadata_json
         self.mkdirs = mkdirs
         self.hidden = hidden
-        self.app_config_json = None
+        self.appconfig = appconfig
 
     def short_str(self):
         mimetype = ""
@@ -581,15 +584,35 @@ class FSClient:
         stream = io.StringIO(json_data)
         if fileopts is None:
             fileopts = FileOpts()
-        update_file_opts_from_stream(stream, fileopts)
+        await update_fileopts_from_stream(stream, fileopts)
         if fileopts.mimetype is None:
             fileopts.mimetype = "application/json"
         fileopts.filetype = "static"
         await self.set_raw_path(path, fileopts, stream=stream)
 
+    async def set_static_path(self, path, *, fileopts=None, strval=None, bytesval=None, stream=None, file_name=None):
+        if stream is not None:
+            pass
+        elif strval is not None:
+            stream = io.StringIO(strval)
+        elif bytesval is not None:
+            stream = io.BytesIO(bytesval)
+        elif file_name is not None:
+            stream = await aiofiles.open(file_name, "rb")
+        if stream is None:
+            raise ValueError("set_static_path: Must provide strval, bytesval, file_name or stream")
+        if fileopts is None:
+            raise ValueError("set_static_path: Must provide fileopts (set at least mimetype)")
+        if not isinstance(fileopts, FileOpts):
+            raise TypeError("set_static_path: fileopts must be type dashborg.FileOpts")
+        fileopts.filetype = "static"
+        await update_fileopts_from_stream(stream, fileopts)
+        await self.set_raw_path(path, fileopts, stream=stream)
+
     async def link_runtime(self, path, runtime, fileopts=None):
         if fileopts is None:
-            fileopts = FileOpts(filetype="rt-link")
+            fileopts = FileOpts()
+        fileopts.filetype = "rt-link"
         if runtime is None:
             raise ValueError("Must pass a runtime to link_runtime()")
         if not isinstance(runtime, LinkRuntime):
@@ -598,7 +621,8 @@ class FSClient:
 
     async def link_app_runtime(self, path, runtime, fileopts=None):
         if fileopts is None:
-            fileopts = FileOpts(filetype="rt-app-link")
+            fileopts = FileOpts()
+        fileopts.filetype = "rt-app-link"
         if runtime is None:
             raise ValueError("Must pass a runtime to link_app_runtime()")
         if not isinstance(runtime, AppRuntime):
@@ -622,17 +646,53 @@ class AppClient:
     def new_app(self, app_name):
         return App(app_name, client=self.client)
 
+    async def write_app(self, app, connect=False):
+        app_config = app.get_app_config()
+        print(f"app config: {app_config}")
+        if connect and app.has_external_runtime():
+            raise ValueError(f"App has an external runtime path '{app.get_runtime_path()}', cannot connect")
+        if connect and app_config.get("runtimepath") is None:
+            raise ValueError(f"App has undefined runtime path, cannot connect")
+        if connect and app.runtime is None:
+            raise ValueError(f"App has undefined runtime, cannot connect")
+        roles = app_config["allowedroles"]
+        fs = app.client.global_fs_client()
+        app_config_json = json.dumps(app_config)
+        await fs.set_raw_path(app.get_app_path(), FileOpts(filetype="app", mimetype="application/x-dashborg+json", allowedroles=roles, appconfig=app_config_json))
+        html_path = app_config.get("htmlpath")
+        if (html_path is not None) and app._has_static_html():
+            html_fileopts = FileOpts(mimetype="text/html", allowedroles=roles)
+            await fs.set_static_path(html_path, fileopts=html_fileopts, strval=app.html_str, file_name=app.html_file_name, stream=app.html_stream)
+        if connect:
+            runtime_path = app_config.get("runtimepath")
+            runtime_fileopts = FileOpts(allowedroles=roles)
+            await fs.link_app_runtime(runtime_path, app.runtime, fileopts=runtime_fileopts)
+        app_name = app_config.get("appname")
+        app_link = self.make_app_url(app_name)
+        print(f"Dashborg App Link [{app_name}]: {app_link}")
 
-def update_file_opts_from_stream(stream, fileopts):
+    def make_app_url(self, app_name, jwt_opts=None, no_jwt=None):
+        if app_name is None or app_name == "":
+            raise ValueError("app_name must be set / not empty")
+        app_link = self.client._get_acc_host() + dbu.make_app_path(app_name, zone_name=self.client.config.zone_name)
+        if no_jwt is None:
+            no_jwt = self.client.config.no_jwt
+        if no_jwt:
+            return app_link
+        jwt_token = self.client.config.make_account_jwt()
+        return f"{app_link}?jwt={jwt_token}"
+    
+
+async def update_fileopts_from_stream(stream, fileopts):
     if fileopts is None or not isinstance(fileopts, FileOpts):
-        raise ValueError("FileOpts must be passed to update_file_opts_from_stream (set at least mimetype)")
-    if not stream.seekable():
+        raise ValueError("FileOpts must be passed to update_fileopts_from_stream (set at least mimetype)")
+    if not callable(getattr(stream, "seekable", None)) or not stream.seekable():
         raise ValueError("Stream must be seekable to set sha256 hash in FileOpts")
     stream.seek(0, 0)
     sha = hashlib.sha256()
     size = 0
     while True:
-        buf = stream.read(STREAM_BLOCKSIZE)
+        buf = await stream.read(STREAM_BLOCKSIZE)
         if len(buf) == 0:
             break
         if isinstance(buf, str):
@@ -694,7 +754,7 @@ class LinkRuntime(_BaseRuntime):
     def __init__(self):
         super().__init__(is_app_runtime=False)
 
-    def run_handler(self, req):
+    async def run_handler(self, req):
         (_, _, pathfrag) = dbu.parse_full_path(req.path)
         if pathfrag is None:
             pathfrag = "@default"
@@ -703,13 +763,16 @@ class LinkRuntime(_BaseRuntime):
             raise DashborgError(f"No handler found for '{pathfrag}'", err_code="NOHANDLER")
         if req.request_method == "GET" and not hval.pure_handler:
             raise DashborgError(f"GET/data request to non-pure handler '{pathfrag}'")
-        return hval.handlerfn(req)
+        hrtn = hval.handlerfn(req)
+        if inspect.iscoroutine(hrtn):
+            hrtn = await hrtn
+        return hrtn
 
 class AppRuntime(_BaseRuntime):
     def __init__(self):
         super().__init__(is_app_runtime=True)
 
-    def run_handler(self, req):
+    async def run_handler(self, req):
         (_, _, pathfrag) = dbu.parse_full_path(req.path)
         if pathfrag is None:
             pathfrag = "@default"
@@ -718,7 +781,10 @@ class AppRuntime(_BaseRuntime):
             raise DashborgError(f"No handler found for '{pathfrag}'", err_code="NOHANDLER")
         if req.request_method == "GET" and not hval.pure_handler:
             raise DashborgError(f"GET/data request to non-pure handler '{pathfrag}'")
-        return hval.handlerfn(req)
+        hrtn = hval.handlerfn(req)
+        if inspect.iscoroutine(hrtn):
+            hrtn = await hrtn
+        return hrtn
 
 
 
@@ -776,6 +842,13 @@ class AppRequest:
         )
         self.rr_actions.append(rr)
 
+    def invalidate_data(self, path_regexp_str):
+        if self.is_done:
+            raise RuntimeError(f"Cannot call invalidate_data(), path={path}, Request is already done")
+        rr = dborgproto_pb2.RRAction(Ts=dbu.dashts(), ActionType="invalidate", Selector=path_regexp_str)
+        self.rr_actions.append(rr)
+        
+
 def _err_to_errortype(e):
     if e is None:
         return None
@@ -803,7 +876,7 @@ def _make_response_msg(preq, rtnval, is_app_request):
         if rtnval is not None:
             rtn_rra = _rtnval_to_rra(rtnval, preq.json_opts)
         if is_app_request:
-            msg.Actions.extend(preq.actions)
+            msg.Actions.extend(preq.rr_actions)
         msg.Actions.extend(rtn_rra)
         return msg
     except Exception as e:
@@ -868,7 +941,7 @@ def _blobreturn_to_rra(blob):
     return rra
 
 class App:
-    def __init__(self, app_name, *, client, config):
+    def __init__(self, app_name, *, client, config=None):
         if not isinstance(client, Client):
             raise TypeError("client must be type=dashborg.Client")
         self.client = client
@@ -879,18 +952,20 @@ class App:
         self.allowed_roles = ["user"]
         self.offline_access = False
         self.init_required = False
+        self.pages_enabled = False
+        self.runtime_ext_path = None
         self.runtime = AppRuntime()
         self._clear_html_opts()
 
     def get_app_config(self):
         rtn = {
-            "clientversion": CLIENT_VERSION,
             "appname": self.app_name,
+            "clientversion": CLIENT_VERSION,
             "allowedroles": self.allowed_roles,
-            "htmlpath": self.get_html_path(),
-            "runtimepath": self.get_runtime_path(),
             "initrequired": self.init_required,
             "offlineaccess": self.offline_access,
+            "htmlpath": self.get_html_path(),
+            "runtimepath": self.get_runtime_path(),
         }
         if self.app_title is not None:
             rtn["apptitle"] = self.app_title
@@ -898,6 +973,8 @@ class App:
             rtn["appvistype"] = self.app_vis_type
         if self.app_vis_order is not None:
             rtn["appvisorder"] = self.app_vis_order
+        if self.pages_enabled:
+            rtn["pagesenabled"] = True
         return rtn
 
     def get_app_path(self):
@@ -908,7 +985,13 @@ class App:
             return self.get_app_path() + "/_/runtime:@html"
         if self.html_ext_path is not None:
             return self.html_ext_path
+        return self.get_app_path() + "/_/html"
+
+    def _default_runtime_path(self):
         return self.get_app_path() + "/_/runtime"
+
+    def has_external_runtime(self):
+        return self.get_runtime_path() != self._default_runtime_path()
 
     def get_runtime_path(self):
         if self.runtime_ext_path is not None:
@@ -920,6 +1003,7 @@ class App:
         self.html_file_name = None
         self.html_from_runtime = False
         self.html_ext_path = None
+        self.html_stream = None
 
     def set_allowed_roles(self, *roles):
         self.config["allowedroles"] = roles
@@ -927,12 +1011,12 @@ class App:
     def set_app_title(self, title):
         self.config["apptitle"] = title
 
-    def set_html(self, *, html=None, file_name=None, path=None, runtime=False):
+    def set_html(self, *, html=None, file_name=None, path=None, runtime=False, stream=None):
         self._clear_html_opts()
         if html is not None:
             self.html_str = html
             return
-        if file is not None:
+        if file_name is not None:
             self.html_file_name = file_name
             return
         if path is not None:
@@ -941,6 +1025,12 @@ class App:
         if runtime:
             self.html_from_runtime = True
             return
+        if stream:
+            self.html_stream = stream
+            return
+
+    def _has_static_html(self):
+        return (self.html_str is not None) or (self.html_file_name is not None) or (self.html_stream is not None)
 
     def app_fs_client(self):
         if not dbu.is_app_name_valid(self.app_name):
