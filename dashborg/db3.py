@@ -14,9 +14,13 @@ import logging
 import inspect
 import io
 import hashlib
-import requests
 import functools
 import traceback
+import glob
+import watchdog
+import aiohttp
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer as WatchdogObserver
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -36,6 +40,7 @@ except ImportError:
     dataclasses = None  # type: ignore
 
 NotConnectedErr = DashborgError("Dashborg Client is not connected", err_code="NOCONN")
+watchdog_observer = None
 
 
 TLS_KEY_FILENAME = "dashborg-client.key"
@@ -223,7 +228,7 @@ class Client:
         if self.conn is not None:
             await self.conn.close()
         if self.config.grpc_host is None:
-            self._get_grpc_server()
+            await self._get_grpc_server()
         addr = self.config.grpc_host + ":" + str(self.config.grpc_port)
         if self.config.verbose:
             print(f"Dashborg Connect gRPC ({addr})")
@@ -246,22 +251,24 @@ class Client:
         self.conn = grpc.aio.secure_channel(target=addr, credentials=creds, options=options)
         self.db_service = dborgproto_pb2_grpc.DashborgServiceStub(self.conn)
 
-    def _get_grpc_server(self):
+    async def _get_grpc_server(self):
         url = f"https://{self.config.console_host}/grpc-server"
-        resp = requests.get(url, params={"accid": self.config.acc_id}, timeout=2.0)
-        if not resp.ok:
-            raise DashborgError(f"HTTP Error getting Dashborg grpc-server status:{resp.status_code} reason:{resp.reason}")
-        jsonresp = resp.json()
-        if not jsonresp.get("success"):
-            raise DashborgError(f"Cannot get gRPC Server Host (error response): {jsonresp.get('error')}")
-        if not jsonresp.get("data"):
-            raise DashborgError(f"Cannot get gRPC Server Host (empty response)")
-        grpcdata = jsonresp.get("data")
-        print(f"got resp: {grpcdata}")
-        if grpcdata.get("grpcserver") is None or grpcdata.get("grpcport") is None:
-            raise DashborgError(f"Cannot get gRPC Server Host (bad response)")
-        self.config.grpc_host = grpcdata.get("grpcserver")
-        self.config.grpc_port = int(grpcdata.get("grpcport"))
+        http_timeout = aiohttp.ClientTimeout(total=2.0)
+        async with aiohttp.ClientSession(timeout=http_timeout) as session:
+            async with session.get(url, params={"accid": self.config.acc_id}) as resp:
+                if not resp.ok:
+                    raise DashborgError(f"HTTP Error getting Dashborg grpc-server status:{resp.status_code} reason:{resp.reason}")
+                jsonresp = await resp.json()
+                if not jsonresp.get("success"):
+                    raise DashborgError(f"Cannot get gRPC Server Host (error response): {jsonresp.get('error')}")
+                if not jsonresp.get("data"):
+                    raise DashborgError(f"Cannot get gRPC Server Host (empty response)")
+                grpcdata = jsonresp.get("data")
+                print(f"got resp: {grpcdata}")
+                if grpcdata.get("grpcserver") is None or grpcdata.get("grpcport") is None:
+                    raise DashborgError(f"Cannot get gRPC Server Host (bad response)")
+                self.config.grpc_host = grpcdata.get("grpcserver")
+                self.config.grpc_port = int(grpcdata.get("grpcport"))
 
     def _conn_meta(self):
         return (("dashborg-connid", self.conn_id), ("dashborg-clientversion", CLIENT_VERSION),)
@@ -490,17 +497,21 @@ class Client:
         headers["X-Dashborg-AccId"] = self.config.acc_id
         headers["X-Dashborg-UploadId"] = uploadId
         headers["X-Dashborg-UploadKey"] = uploadKey
-        resp = requests.post("https://console.dashborg-dev.com:8080/api2/raw-upload", data=stream, headers=headers, timeout=upload_timeout)
-        if not resp.ok:
-            raise DashborgError(f"HTTP Error calling raw-upload status:{resp.status_code} reason:{resp.reason}")
-        jsonresp = resp.json()
-        if not jsonresp.get("success"):
-            msg = jsonresp.error
-            if msg is None:
-                msg = "Unknown Error"
-            raise DashborgError(msg, err_code=jsonresp.get("errcode"), perm_err=jsonresp.get("permerr"))
-        return
-
+        http_timeout = aiohttp.ClientTimeout(total=upload_timeout)
+        print(f"STREAM {stream}")
+        async with aiohttp.ClientSession(timeout=http_timeout) as session:
+            async with session.post("https://console.dashborg-dev.com:8080/api2/raw-upload", data=stream, headers=headers) as resp:
+                print(f"upload {resp}")
+                if not resp.ok:
+                    raise DashborgError(f"HTTP Error calling raw-upload status:{resp.status_code} reason:{resp.reason}")
+                jsonresp = await resp.json()
+                print(f"JSONRESP {jsonresp}")
+                if not jsonresp.get("success"):
+                    msg = jsonresp.get("error")
+                    if msg is None:
+                        msg = "Unknown Error"
+                    raise DashborgError(msg, err_code=jsonresp.get("errcode"), perm_err=jsonresp.get("permerr"))
+        
     def _connect_link_runtime(self, path, runtime):
         if runtime is None or not isinstance(runtime, (LinkRuntime, AppRuntime)):
             raise TypeError("runtime must be type LinkRuntime/AppRuntime")
@@ -688,7 +699,7 @@ async def update_fileopts_from_stream(stream, fileopts):
         raise ValueError("FileOpts must be passed to update_fileopts_from_stream (set at least mimetype)")
     if not callable(getattr(stream, "seekable", None)) or not stream.seekable():
         raise ValueError("Stream must be seekable to set sha256 hash in FileOpts")
-    stream.seek(0, 0)
+    await stream.seek(0, 0)
     sha = hashlib.sha256()
     size = 0
     while True:
@@ -704,7 +715,7 @@ async def update_fileopts_from_stream(stream, fileopts):
             size += len(buf)
         else:
             raise ValueError("Stream must produce either str or bytes when calling read()")
-    stream.seek(0, 0)
+    await stream.seek(0, 0)
     fileopts.filetype = "static"
     fileopts.sha256 = base64.b64encode(sha.digest()).decode('utf-8')
     fileopts.size = size
@@ -1037,3 +1048,22 @@ class App:
             raise ValueError(f"Invalid app_name '{self.app_name}'")
         return FSClient(self.client, root_path=self.get_app_path())
 
+class _WatchdogHandler(FileSystemEventHandler):
+    def __init__(self, file_path):
+        self.file_path = file_path
+    
+    def on_modified(self, event):
+        if event.src_path != self.file_path:
+            return
+        print(f"watchdog modified ok {event}")
+
+
+def watch_file(file_name, callback_fn):
+    global watchdog_observer
+    if watchdog_observer is None:
+        watchdog_observer = WatchdogObserver()
+        watchdog_observer.start()
+    esc_file_name = glob.escape(os.path.abspath(file_name))
+    dir_name = os.path.dirname(esc_file_name)
+    handler = _WatchdogHandler(esc_file_name)
+    watchdog_observer.schedule(handler, dir_name, recursive=False)

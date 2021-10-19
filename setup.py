@@ -29,7 +29,8 @@ setuptools.setup(
         'pycparser',
         'six',
         'pyjwt',
-        'requests',
+        'watchdog',
+        'aiohttp',
     ],
     python_requires='>=3.6',
 )
