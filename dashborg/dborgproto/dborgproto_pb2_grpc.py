@@ -14,52 +14,53 @@ class DashborgServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Proc = channel.unary_unary(
-                '/dashborg.rpc1.DashborgService/Proc',
-                request_serializer=dborgproto__pb2.ProcMessage.SerializeToString,
-                response_deserializer=dborgproto__pb2.ProcResponse.FromString,
-                )
-        self.SendResponse = channel.unary_unary(
-                '/dashborg.rpc1.DashborgService/SendResponse',
-                request_serializer=dborgproto__pb2.SendResponseMessage.SerializeToString,
-                response_deserializer=dborgproto__pb2.SendResponseResponse.FromString,
-                )
-        self.RegisterHandler = channel.unary_unary(
-                '/dashborg.rpc1.DashborgService/RegisterHandler',
-                request_serializer=dborgproto__pb2.RegisterHandlerMessage.SerializeToString,
-                response_deserializer=dborgproto__pb2.RegisterHandlerResponse.FromString,
-                )
-        self.StartStream = channel.unary_unary(
-                '/dashborg.rpc1.DashborgService/StartStream',
-                request_serializer=dborgproto__pb2.StartStreamMessage.SerializeToString,
-                response_deserializer=dborgproto__pb2.StartStreamResponse.FromString,
-                )
-        self.ReflectZone = channel.unary_unary(
-                '/dashborg.rpc1.DashborgService/ReflectZone',
-                request_serializer=dborgproto__pb2.ReflectZoneMessage.SerializeToString,
-                response_deserializer=dborgproto__pb2.ReflectZoneResponse.FromString,
-                )
-        self.CallDataHandler = channel.unary_unary(
-                '/dashborg.rpc1.DashborgService/CallDataHandler',
-                request_serializer=dborgproto__pb2.CallDataHandlerMessage.SerializeToString,
-                response_deserializer=dborgproto__pb2.CallDataHandlerResponse.FromString,
-                )
-        self.BackendPush = channel.unary_unary(
-                '/dashborg.rpc1.DashborgService/BackendPush',
-                request_serializer=dborgproto__pb2.BackendPushMessage.SerializeToString,
-                response_deserializer=dborgproto__pb2.BackendPushResponse.FromString,
+        self.ConnectClient = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/ConnectClient',
+                request_serializer=dborgproto__pb2.ConnectClientMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.ConnectClientResponse.FromString,
                 )
         self.RequestStream = channel.unary_stream(
                 '/dashborg.rpc1.DashborgService/RequestStream',
                 request_serializer=dborgproto__pb2.RequestStreamMessage.SerializeToString,
                 response_deserializer=dborgproto__pb2.RequestMessage.FromString,
                 )
+        self.SendResponse = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/SendResponse',
+                request_serializer=dborgproto__pb2.SendResponseMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.SendResponseResponse.FromString,
+                )
+        self.SetPath = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/SetPath',
+                request_serializer=dborgproto__pb2.SetPathMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.SetPathResponse.FromString,
+                )
+        self.RemovePath = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/RemovePath',
+                request_serializer=dborgproto__pb2.RemovePathMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.RemovePathResponse.FromString,
+                )
+        self.FileInfo = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/FileInfo',
+                request_serializer=dborgproto__pb2.FileInfoMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.FileInfoResponse.FromString,
+                )
+        self.ConnectLink = channel.unary_unary(
+                '/dashborg.rpc1.DashborgService/ConnectLink',
+                request_serializer=dborgproto__pb2.ConnectLinkMessage.SerializeToString,
+                response_deserializer=dborgproto__pb2.ConnectLinkResponse.FromString,
+                )
 
 
 class DashborgServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def Proc(self, request, context):
+    def ConnectClient(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RequestStream(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -71,39 +72,26 @@ class DashborgServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RegisterHandler(self, request, context):
+    def SetPath(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def StartStream(self, request, context):
+    def RemovePath(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ReflectZone(self, request, context):
+    def FileInfo(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def CallDataHandler(self, request, context):
+    def ConnectLink(self, request, context):
         """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def BackendPush(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def RequestStream(self, request, context):
-        """this is backwards since the server sends requests, and the client responds to them
-        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -111,45 +99,40 @@ class DashborgServiceServicer(object):
 
 def add_DashborgServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Proc': grpc.unary_unary_rpc_method_handler(
-                    servicer.Proc,
-                    request_deserializer=dborgproto__pb2.ProcMessage.FromString,
-                    response_serializer=dborgproto__pb2.ProcResponse.SerializeToString,
+            'ConnectClient': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConnectClient,
+                    request_deserializer=dborgproto__pb2.ConnectClientMessage.FromString,
+                    response_serializer=dborgproto__pb2.ConnectClientResponse.SerializeToString,
+            ),
+            'RequestStream': grpc.unary_stream_rpc_method_handler(
+                    servicer.RequestStream,
+                    request_deserializer=dborgproto__pb2.RequestStreamMessage.FromString,
+                    response_serializer=dborgproto__pb2.RequestMessage.SerializeToString,
             ),
             'SendResponse': grpc.unary_unary_rpc_method_handler(
                     servicer.SendResponse,
                     request_deserializer=dborgproto__pb2.SendResponseMessage.FromString,
                     response_serializer=dborgproto__pb2.SendResponseResponse.SerializeToString,
             ),
-            'RegisterHandler': grpc.unary_unary_rpc_method_handler(
-                    servicer.RegisterHandler,
-                    request_deserializer=dborgproto__pb2.RegisterHandlerMessage.FromString,
-                    response_serializer=dborgproto__pb2.RegisterHandlerResponse.SerializeToString,
+            'SetPath': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetPath,
+                    request_deserializer=dborgproto__pb2.SetPathMessage.FromString,
+                    response_serializer=dborgproto__pb2.SetPathResponse.SerializeToString,
             ),
-            'StartStream': grpc.unary_unary_rpc_method_handler(
-                    servicer.StartStream,
-                    request_deserializer=dborgproto__pb2.StartStreamMessage.FromString,
-                    response_serializer=dborgproto__pb2.StartStreamResponse.SerializeToString,
+            'RemovePath': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemovePath,
+                    request_deserializer=dborgproto__pb2.RemovePathMessage.FromString,
+                    response_serializer=dborgproto__pb2.RemovePathResponse.SerializeToString,
             ),
-            'ReflectZone': grpc.unary_unary_rpc_method_handler(
-                    servicer.ReflectZone,
-                    request_deserializer=dborgproto__pb2.ReflectZoneMessage.FromString,
-                    response_serializer=dborgproto__pb2.ReflectZoneResponse.SerializeToString,
+            'FileInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.FileInfo,
+                    request_deserializer=dborgproto__pb2.FileInfoMessage.FromString,
+                    response_serializer=dborgproto__pb2.FileInfoResponse.SerializeToString,
             ),
-            'CallDataHandler': grpc.unary_unary_rpc_method_handler(
-                    servicer.CallDataHandler,
-                    request_deserializer=dborgproto__pb2.CallDataHandlerMessage.FromString,
-                    response_serializer=dborgproto__pb2.CallDataHandlerResponse.SerializeToString,
-            ),
-            'BackendPush': grpc.unary_unary_rpc_method_handler(
-                    servicer.BackendPush,
-                    request_deserializer=dborgproto__pb2.BackendPushMessage.FromString,
-                    response_serializer=dborgproto__pb2.BackendPushResponse.SerializeToString,
-            ),
-            'RequestStream': grpc.unary_stream_rpc_method_handler(
-                    servicer.RequestStream,
-                    request_deserializer=dborgproto__pb2.RequestStreamMessage.FromString,
-                    response_serializer=dborgproto__pb2.RequestMessage.SerializeToString,
+            'ConnectLink': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConnectLink,
+                    request_deserializer=dborgproto__pb2.ConnectLinkMessage.FromString,
+                    response_serializer=dborgproto__pb2.ConnectLinkResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -162,7 +145,7 @@ class DashborgService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def Proc(request,
+    def ConnectClient(request,
             target,
             options=(),
             channel_credentials=None,
@@ -172,9 +155,26 @@ class DashborgService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/Proc',
-            dborgproto__pb2.ProcMessage.SerializeToString,
-            dborgproto__pb2.ProcResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/ConnectClient',
+            dborgproto__pb2.ConnectClientMessage.SerializeToString,
+            dborgproto__pb2.ConnectClientResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RequestStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/dashborg.rpc1.DashborgService/RequestStream',
+            dborgproto__pb2.RequestStreamMessage.SerializeToString,
+            dborgproto__pb2.RequestMessage.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -196,7 +196,7 @@ class DashborgService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def RegisterHandler(request,
+    def SetPath(request,
             target,
             options=(),
             channel_credentials=None,
@@ -206,14 +206,14 @@ class DashborgService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/RegisterHandler',
-            dborgproto__pb2.RegisterHandlerMessage.SerializeToString,
-            dborgproto__pb2.RegisterHandlerResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/SetPath',
+            dborgproto__pb2.SetPathMessage.SerializeToString,
+            dborgproto__pb2.SetPathResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def StartStream(request,
+    def RemovePath(request,
             target,
             options=(),
             channel_credentials=None,
@@ -223,14 +223,14 @@ class DashborgService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/StartStream',
-            dborgproto__pb2.StartStreamMessage.SerializeToString,
-            dborgproto__pb2.StartStreamResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/RemovePath',
+            dborgproto__pb2.RemovePathMessage.SerializeToString,
+            dborgproto__pb2.RemovePathResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def ReflectZone(request,
+    def FileInfo(request,
             target,
             options=(),
             channel_credentials=None,
@@ -240,14 +240,14 @@ class DashborgService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/ReflectZone',
-            dborgproto__pb2.ReflectZoneMessage.SerializeToString,
-            dborgproto__pb2.ReflectZoneResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/FileInfo',
+            dborgproto__pb2.FileInfoMessage.SerializeToString,
+            dborgproto__pb2.FileInfoResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def CallDataHandler(request,
+    def ConnectLink(request,
             target,
             options=(),
             channel_credentials=None,
@@ -257,42 +257,8 @@ class DashborgService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/CallDataHandler',
-            dborgproto__pb2.CallDataHandlerMessage.SerializeToString,
-            dborgproto__pb2.CallDataHandlerResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def BackendPush(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/BackendPush',
-            dborgproto__pb2.BackendPushMessage.SerializeToString,
-            dborgproto__pb2.BackendPushResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def RequestStream(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/dashborg.rpc1.DashborgService/RequestStream',
-            dborgproto__pb2.RequestStreamMessage.SerializeToString,
-            dborgproto__pb2.RequestMessage.FromString,
+        return grpc.experimental.unary_unary(request, target, '/dashborg.rpc1.DashborgService/ConnectLink',
+            dborgproto__pb2.ConnectLinkMessage.SerializeToString,
+            dborgproto__pb2.ConnectLinkResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
