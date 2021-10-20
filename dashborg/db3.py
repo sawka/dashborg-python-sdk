@@ -724,26 +724,42 @@ async def update_fileopts_from_stream(stream, fileopts):
     fileopts.size = size
 
 class _HandlerVal:
-    def __init__(self, name, handlerfn, pure_handler=False, hidden=False, display=None):
+    def __init__(self, name, handlerfn, opts):
         self.handlerfn = handlerfn
-        self.pure_handler = pure_handler
         self.handler_info = {}
         self.name = name
-        if hidden:
-            self.handler_info["hidden"] = True
-        if display is not None:
-            self.handler_info["display"] = display
+        self.pure_handler = opts.pure_handler
+        self.hidden = opts.hidden
+        self.display = opts.display
+        self.form_display = opts.form_display
+        self.results_display = opts.results_display
+        self.description = opts.description
 
     def get_handler_info(self):
-        rtn = self.handler_info.copy()
+        rtn = {}
         rtn["name"] = self.name
-        rtn["pure"] = self.pure_handler
+        if self.pure_handler:
+            rtn["pure"] = True
+        if self.hidden:
+            rtn["hidden"] = True
+        if self.display is not None:
+            rtn["display"] = self.display
+        if self.form_display is not None:
+            rtn["formdisplay"] = self.form_display
+        if self.results_display is not None:
+            rtn["resultsdisplay"] = self.results_display
+        if self.description is not None:
+            rtn["description"] = self.description
+        _add_handler_typeinfo(self.name, self.handlerfn, rtn)
         return rtn
+
+    def to_dict(self):
+        return self.get_handler_info()
 
 class _BaseRuntime:
     def __init__(self, is_app_runtime):
         self.handlers = {}
-        self.handlers["@typeinfo"] = _HandlerVal("@typeinfo", self._typeinfo_handler, pure_handler=True, hidden=True)
+        self.handlers["@typeinfo"] = _HandlerVal("@typeinfo", self._typeinfo_handler, HandlerOpts(pure_handler=True, hidden=True))
         self.is_app_runtime = is_app_runtime
         pass
 
@@ -756,13 +772,24 @@ class _BaseRuntime:
             rtn.append(hinfo)
         return rtn
 
-    def set_raw_handler(self, handler_name, handlerfn, pure_handler=False):
+    def set_handler(self, handler_name, handlerfn, opts=None, pure_handler=None, hidden=None, display=None):
         if not callable(handlerfn):
             raise TypeError("handlerfn must be callable")
         if not dbu.is_path_frag_valid(handler_name):
             raise ValueError("handler_name is not valid")
-        hval = _HandlerVal(handler_name, handlerfn, pure_handler=pure_handler)
+        if opts is None:
+            opts = HandlerOpts()
+        if not isinstance(opts, HandlerOpts):
+            raise TypeError("opts must be type HandlerOpts")
+        if pure_handler is not None:
+            opts.pure_handler = pure_handler
+        if hidden is not None:
+            opts.hidden = hidden
+        if display is not None:
+            opts.display = display
+        hval = _HandlerVal(handler_name, handlerfn, opts)
         self.handlers[handler_name] = hval
+
 
 class LinkRuntime(_BaseRuntime):
     def __init__(self):
@@ -1104,3 +1131,88 @@ def watch_file(file_name, loop, callback_fn):
     dir_name = os.path.dirname(esc_file_name)
     handler = _WatchdogHandler(esc_file_name, loop, callback_fn)
     watchdog_observer.schedule(handler, dir_name, recursive=False)
+
+class HandlerOpts:
+    def __init__(self, *, hidden=False, pure_handler=False, description=None, display=None, form_display=None, results_display=None):
+        self.hidden = hidden
+        self.pure_handler = pure_handler
+        self.display = display
+        self.form_display = form_display
+        self.results_display = results_display
+        self.description = description
+
+def _add_handler_typeinfo(name, hfn, hinfo):
+    sig = inspect.signature(hfn)
+    if hinfo.get("description") is None:
+        hinfo["description"] = inspect.getdoc(hfn)
+    if sig.return_annotation != inspect.Signature.empty:
+        hinfo["rtntype"] = _make_typeinfo(None, sig.return_annotation)
+    params = list(sig.parameters.values())
+    hinfo["paramstype"] = []
+    _check_first_params(params, hinfo)
+    for p in params:
+        tinfo = _make_typeinfo(p)
+        hinfo["paramstype"].append(tinfo)
+
+def _check_first_params(params, hinfo):
+    if len(params) == 0:
+        return
+    p = params[0]
+    if p.name == "req" or p.annotation == AppRequest:
+        params.pop(0)
+        hinfo["reqparam"] = True
+    if len(params) == 0:
+        return
+    p = params[0]
+    if p.name == "appstate" or p.name == "app_state":
+        params.pop(0)
+        hinfo["appstateparam"] = True
+        
+
+def _make_typeinfo(param, atype=None):
+    rtn = {}
+    if param is not None:
+        rtn["name"] = param.name
+        if param.default != inspect.Parameter.empty:
+            rtn["optional"] = True
+        atype = param.annotation
+    if atype is not None and atype != inspect.Parameter.empty:
+        if atype == int:
+            rtn["type"] = "int"
+        elif atype == str:
+            rtn["type"] = "string"
+        elif atype == float:
+            rtn["type"] = "float"
+        elif atype == bool:
+            rtn["type"] = "bool"
+        elif atype == list or atype == tuple:
+            rtn["type"] = "array"
+        elif atype == dict:
+            rtn["type"] = "map"
+        else:
+            raise ValueError(f"Invalid type annotation for JSON unmarshalling: {atype}")
+    return rtn
+
+def _make_handler_args(hfn, hinfo, req):
+    args = []
+    if hinfo.get("reqparam"):
+        args.append(req)
+    if hinfo.get("appstateparam"):
+        args.append(req.app_state)
+    sig = inspect.signature(hfn)
+    num_params = len(sig.parameters)
+    data_arg_num = 0
+    data_array = []
+    if req.data is None:
+        data_array = []
+    elif isinstance(req.data, list):
+        data_array = req.data
+    else:
+        data_array = [req.data]
+    while len(args) < num_params:
+        if data_arg_num >= len(data_array):
+            args.append(None)
+            continue
+        args.append(data_array[data_arg_num])
+        data_arg_num += 1
+    return args
