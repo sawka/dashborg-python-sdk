@@ -497,9 +497,8 @@ class Client:
         headers["X-Dashborg-UploadId"] = uploadId
         headers["X-Dashborg-UploadKey"] = uploadKey
         http_timeout = aiohttp.ClientTimeout(total=upload_timeout)
-        print(f"STREAM {stream}")
         async with aiohttp.ClientSession(timeout=http_timeout) as session:
-            async with session.post("https://console.dashborg-dev.com:8080/api2/raw-upload", data=stream, headers=headers) as resp:
+            async with session.post(f"https://{self.config.console_host}/api2/raw-upload", data=stream, headers=headers) as resp:
                 if not resp.ok:
                     raise DashborgError(f"HTTP Error calling raw-upload status:{resp.status_code} reason:{resp.reason}")
                 jsonresp = await resp.json()
@@ -621,7 +620,7 @@ class FSClient:
         if fileopts.mimetype is None:
             fileopts.mimetype = "application/json"
         fileopts.filetype = "static"
-        await self.set_raw_path(self.root_path+path, fileopts, stream=stream)
+        await self.set_raw_path(path, fileopts, stream=stream)
 
     async def set_static_path(self, path, *, fileopts=None, strval=None, bytesval=None, stream=None, file_name=None, watch=False):
         if watch and file_name is None:
@@ -642,10 +641,10 @@ class FSClient:
             raise TypeError("set_static_path: fileopts must be type dashborg.FileOpts")
         fileopts.filetype = "static"
         await update_fileopts_from_stream(stream, fileopts)
-        await self.set_raw_path(self.root_path+path, fileopts, stream=stream)
+        await self.set_raw_path(path, fileopts, stream=stream)
         if watch:
             async def watch_callback():
-                await self.set_static_path(self.root_path+path, fileopts=fileopts, file_name=file_name)
+                await self.set_static_path(path, fileopts=fileopts, file_name=file_name)
                 return
             watch_file(file_name, asyncio.get_running_loop(), watch_callback)
 
@@ -657,7 +656,7 @@ class FSClient:
             raise ValueError("Must pass a runtime to link_runtime()")
         if not isinstance(runtime, LinkRuntime):
             raise TypeError(f"Must pass a type LinkRuntime to link_runtime() type={type(runtime)}")
-        await self.set_raw_path(self.root_path+path, fileopts, runtime=runtime)
+        await self.set_raw_path(path, fileopts, runtime=runtime)
 
     async def link_app_runtime(self, path, runtime, fileopts=None):
         if fileopts is None:
@@ -667,7 +666,7 @@ class FSClient:
             raise ValueError("Must pass a runtime to link_app_runtime()")
         if not isinstance(runtime, AppRuntime):
             raise TypeError(f"Must pass a type AppRuntime to link_app_runtime() type={type(runtime)}")
-        await self.set_raw_path(self.root_path+path, fileopts, runtime=runtime)
+        await self.set_raw_path(path, fileopts, runtime=runtime)
 
     def make_path_url(self, path, jwt_opts=None, no_jwt=False):
         dbu.parse_full_path(self.root_path+path)
@@ -769,11 +768,12 @@ async def update_fileopts_from_stream(stream, fileopts):
         raise ValueError("FileOpts must be passed to update_fileopts_from_stream (set at least mimetype)")
     if not callable(getattr(stream, "seekable", None)) or not stream.seekable():
         raise ValueError("Stream must be seekable to set sha256 hash in FileOpts")
-    await stream.seek(0, 0)
+    await _async_eval(stream.seek(0, 0))
     sha = hashlib.sha256()
     size = 0
     while True:
-        buf = await stream.read(STREAM_BLOCKSIZE)
+        result = stream.read(STREAM_BLOCKSIZE)
+        buf = await _async_eval(result)
         if len(buf) == 0:
             break
         if isinstance(buf, str):
@@ -785,7 +785,7 @@ async def update_fileopts_from_stream(stream, fileopts):
             size += len(buf)
         else:
             raise ValueError("Stream must produce either str or bytes when calling read()")
-    await stream.seek(0, 0)
+    await _async_eval(stream.seek(0, 0))
     fileopts.filetype = "static"
     fileopts.sha256 = base64.b64encode(sha.digest()).decode('utf-8')
     fileopts.size = size
@@ -872,8 +872,7 @@ class _BaseRuntime:
             raise DashborgError(f"GET/data request to non-pure handler '{pathfrag}'")
         hargs = _make_handler_args(hval.handlerfn, hval.get_handler_info(), req)
         hrtn = hval.handlerfn(*hargs)
-        if inspect.iscoroutine(hrtn):
-            hrtn = await hrtn
+        hrtn = await _async_eval(hrtn)
         return hrtn
 
 
@@ -903,8 +902,7 @@ class AppRuntime(_BaseRuntime):
             return
         hargs = _make_handler_args(hval.handlerfn, hval.get_handler_info(), req)
         hrtn = hval.handlerfn(*hargs)
-        if inspect.iscoroutine(hrtn):
-            hrtn = await hrtn
+        hrtn = await _async_eval(hrtn)
         return hrtn
 
 
@@ -1338,3 +1336,8 @@ def _make_handler_args(hfn, hinfo, req):
 
 def app_path_from_name(app_name):
     return f"/_/apps/{app_name}"
+
+async def _async_eval(v):
+    if inspect.isawaitable(v):
+        return await v
+    return v
