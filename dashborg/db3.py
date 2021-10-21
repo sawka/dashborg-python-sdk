@@ -528,6 +528,20 @@ class Client:
             except Exception as e:
                 self._log_error(f"Dashborg Client Error reconnecting link: {e}")
 
+    async def _file_info(self, path, diropts):
+        if not self.is_connected():
+            raise NotConnectedErr
+        dbu.parse_full_path(path, allow_frag=False)
+        msg = dborgproto_pb2.FileInfoMessage(Ts=dbu.dashts(), Path=path)
+        if diropts is not None:
+            msg.DirOptsJson = json.dumps(diropts)
+        resp = await self.db_service.FileInfo(msg, metadata=self._conn_meta(), timeout=DEFAULT_GRPC_TIMEOUT)
+        dbu.handle_rtn_status(resp.Status)
+        if resp.FileInfoJson is None or resp.FileInfoJson == "":
+            return []
+        return json.loads(resp.FileInfoJson)
+        
+
     async def shutdown(self, exit_err=None):
         if exit_err is None:
             exit_err = DashborgError("Client.shutdown() method called")
@@ -652,6 +666,26 @@ class FSClient:
         jwt_token = self.client.config.make_account_jwt(jwt_opts)
         return f"{path_link}?jwt={jwt_token}"
 
+    async def file_info(self, path):
+        if path is None or path == "" or path[0] != "/":
+            raise ValueError("file_info: Invalid Path, must begin with '/'")
+        finfos = await self.client._file_info(path, None)
+        if len(finfos) == 0:
+            return None
+        return finfos[0]
+
+    async def dir_info(self, path, role_list=["*"], show_hidden=False, recursive=False):
+        if path is None or path == "" or path[0] != "/":
+            raise ValueError("file_info: Invalid Path, must begin with '/'")
+        diropts = {
+            "rolelist": role_list,
+            "showhidden": show_hidden,
+            "recursive": recursive,
+        }
+        finfos = await self.client._file_info(path, diropts)
+        return finfos
+    
+
 class AppClient:
     def __init__(self, client):
         if not isinstance(client, Client):
@@ -660,6 +694,19 @@ class AppClient:
 
     def new_app(self, app_name):
         return App(app_name, client=self.client)
+
+    def new_app_from_config(self, app_config):
+        return App(app_config["appname"], client=self.client, config=app_config)
+
+    async def load_app(self, app_name, create=False):
+        app_path = app_path_from_name(app_name)
+        finfo = await self.client.global_fs_client().file_info(app_path)
+        if finfo is None:
+            return self.new_app(app_name) if create else None
+        if finfo["filetype"] != "app" or not finfo.get("appconfig"):
+            raise ValueError(f"file at path {app_path} is not a valid app, filetype={finfo['filetype']}")
+        app_config = json.loads(finfo.get("appconfig"))
+        return self.new_app_from_config(app_config)
 
     async def write_app(self, app, connect=False):
         app_config = app.get_app_config()
@@ -1016,18 +1063,33 @@ class App:
     def __init__(self, app_name, *, client, config=None):
         if not isinstance(client, Client):
             raise TypeError("client must be type=dashborg.Client")
+        if config is None:
+            config = {}
         self.client = client
         self.app_name = app_name
-        self.app_title = None
-        self.app_vis_type = None
-        self.app_vis_order = None
-        self.allowed_roles = ["user"]
-        self.offline_access = False
-        self.init_required = False
-        self.pages_enabled = False
-        self.runtime_ext_path = None
+        self.app_title = config.get("apptitle")
+        self.app_vis_type = config.get("appvistype")
+        self.app_vis_order = config.get("appvisorder")
+        if "allowedroles" in config:
+            self.allowed_roles = config.get("allowedroles")
+        else:
+            self.allowed_roles = ["user"]
+        self.offline_access = config.get("offlineaccess", False)
+        self.init_required = config.get("initrequired", False)
+        self.pages_enabled = config.get("pagesenabled", False)
         self.runtime = AppRuntime()
         self._clear_html_opts()
+        # set runtime_path
+        self.runtime_ext_path = None
+        config_runtime_path = config.get("runtimepath")
+        if config_runtime_path != self._default_runtime_path():
+            self.runtime_ext_path = config_runtime_path
+        # set htmlpath
+        config_html_path = config.get("htmlpath")
+        if config_html_path == self.get_runtime_path() + ":@html":
+            self.html_from_runtime = True
+        elif config_html_path != self.get_app_path() + "/_/html":
+            self.html_ext_path = config_html_path
 
     def get_app_config(self):
         rtn = {
@@ -1054,7 +1116,7 @@ class App:
 
     def get_html_path(self):
         if self.html_from_runtime:
-            return self.get_app_path() + "/_/runtime:@html"
+            return self.get_runtime_path() + "/_/runtime:@html"
         if self.html_ext_path is not None:
             return self.html_ext_path
         return self.get_app_path() + "/_/html"
@@ -1228,3 +1290,6 @@ def _make_handler_args(hfn, hinfo, req):
         data_array = data_array[0:num_args-len(args)]
     args.extend(data_array)
     return args
+
+def app_path_from_name(app_name):
+    return f"/_/apps/{app_name}"
