@@ -540,7 +540,18 @@ class Client:
         if resp.FileInfoJson is None or resp.FileInfoJson == "":
             return []
         return json.loads(resp.FileInfoJson)
-        
+
+    async def _remove_path(self, path, remove_app=False):
+        if not self.is_connected():
+            raise NotConnectedErr
+        dbu.parse_full_path(path, allow_frag=False)
+        msg = dborgproto_pb2.RemovePathMessage(Ts=dbu.dashts(), Path=path, RemoveFullApp=remove_app)
+        resp = await self.db_service.RemovePath(msg, metadata=self._conn_meta(), timeout=DEFAULT_GRPC_TIMEOUT)
+        dbu.handle_rtn_status(resp.Status)
+        if remove_app:
+            print(f"DashborgClient removed app {path.split('/')[-1]}")
+        else:
+            print(f"DashborgClient removed path {path}")
 
     async def shutdown(self, exit_err=None):
         if exit_err is None:
@@ -610,7 +621,7 @@ class FSClient:
         if fileopts.mimetype is None:
             fileopts.mimetype = "application/json"
         fileopts.filetype = "static"
-        await self.set_raw_path(path, fileopts, stream=stream)
+        await self.set_raw_path(self.root_path+path, fileopts, stream=stream)
 
     async def set_static_path(self, path, *, fileopts=None, strval=None, bytesval=None, stream=None, file_name=None, watch=False):
         if watch and file_name is None:
@@ -631,10 +642,10 @@ class FSClient:
             raise TypeError("set_static_path: fileopts must be type dashborg.FileOpts")
         fileopts.filetype = "static"
         await update_fileopts_from_stream(stream, fileopts)
-        await self.set_raw_path(path, fileopts, stream=stream)
+        await self.set_raw_path(self.root_path+path, fileopts, stream=stream)
         if watch:
             async def watch_callback():
-                await self.set_static_path(path, fileopts=fileopts, file_name=file_name)
+                await self.set_static_path(self.root_path+path, fileopts=fileopts, file_name=file_name)
                 return
             watch_file(file_name, asyncio.get_running_loop(), watch_callback)
 
@@ -646,7 +657,7 @@ class FSClient:
             raise ValueError("Must pass a runtime to link_runtime()")
         if not isinstance(runtime, LinkRuntime):
             raise TypeError(f"Must pass a type LinkRuntime to link_runtime() type={type(runtime)}")
-        await self.set_raw_path(path, fileopts, runtime=runtime)
+        await self.set_raw_path(self.root_path+path, fileopts, runtime=runtime)
 
     async def link_app_runtime(self, path, runtime, fileopts=None):
         if fileopts is None:
@@ -656,10 +667,10 @@ class FSClient:
             raise ValueError("Must pass a runtime to link_app_runtime()")
         if not isinstance(runtime, AppRuntime):
             raise TypeError(f"Must pass a type AppRuntime to link_app_runtime() type={type(runtime)}")
-        await self.set_raw_path(path, fileopts, runtime=runtime)
+        await self.set_raw_path(self.root_path+path, fileopts, runtime=runtime)
 
     def make_path_url(self, path, jwt_opts=None, no_jwt=False):
-        dbu.parse_full_path(path)
+        dbu.parse_full_path(self.root_path+path)
         path_link = self.client._get_acc_host() + "/@fs" + self.root_path + path
         if no_jwt:
             return path_link
@@ -669,7 +680,7 @@ class FSClient:
     async def file_info(self, path):
         if path is None or path == "" or path[0] != "/":
             raise ValueError("file_info: Invalid Path, must begin with '/'")
-        finfos = await self.client._file_info(path, None)
+        finfos = await self.client._file_info(self.root_path+path, None)
         if len(finfos) == 0:
             return None
         return finfos[0]
@@ -682,8 +693,13 @@ class FSClient:
             "showhidden": show_hidden,
             "recursive": recursive,
         }
-        finfos = await self.client._file_info(path, diropts)
+        finfos = await self.client._file_info(self.root_path+path, diropts)
         return finfos
+
+    async def remove_path(self, path):
+        if path is None or path == "" or path[0] != "/":
+            raise ValueError("file_info: Invalid Path, must begin with '/'")
+        await self.client._remove_path(fs.root_path+path)
     
 
 class AppClient:
@@ -742,6 +758,10 @@ class AppClient:
             return app_link
         jwt_token = self.client.config.make_account_jwt()
         return f"{app_link}?jwt={jwt_token}"
+
+    async def remove_app(self, app_name):
+        app_path = app_path_from_name(app_name)
+        await self.client._remove_path(app_path, remove_app=True)
     
 
 async def update_fileopts_from_stream(stream, fileopts):
