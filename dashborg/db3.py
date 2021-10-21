@@ -391,7 +391,7 @@ class Client:
         if preq.is_done:
             return
         preq.is_done = True
-        print(f"send_request_response {preq.path} => rtn:{rtnval}")
+        self._log_info(f"send_request_response {preq.path} => rtn:{rtnval}")
         msg = _make_response_msg(preq, rtnval, is_app_request)
         await self._send_response_proto_rpc(msg)
 
@@ -1161,18 +1161,43 @@ class App:
         self.html_stream = None
 
     def set_init_required(self, init_required):
+        """If True, loading the app will call the init handler.  
+        An error returned from the init handler will cause the app to not load. 
+        If init_required is set, your app will not be available offline
+        """
         self.init_required = init_required
 
     def set_pages_enabled(self, enabled):
+        """Set to True to enable app paging"""
         self.pages_enabled = enabled
 
     def set_allowed_roles(self, *roles):
-        self.config["allowedroles"] = roles
+        """Sets allowed roles"""
+        self.allowed_roles = roles
 
     def set_app_title(self, title):
-        self.config["apptitle"] = title
+        """Sets app title"""
+        self.app_title = title
 
-    def set_html(self, *, html=None, file_name=None, path=None, runtime=False, stream=None, watch=False):
+    def set_app_visibility(vis_type, vis_order=0.0):
+        """Sets app visibility.
+        vis_type -- either "hidden", "default", or "visible". 
+        vis_order -- the order apps are shown.  negative values are okay.  0 is special and will always sort to the end.
+        """
+        self.app_vis_type = vis_type
+        self.app_vis_order = vis_order
+
+    def set_html(self, *, html=None, file_name=None, ext_path=None, runtime=False, stream=None, watch=False):
+        """Sets the app's HTML.  The HTML options are exclusive, only set one (except for watch).  HTML is not
+        sent to the Dashborg server until write_app() is called
+
+        html      -- a string with the HTML content
+        file_name -- a file path to read the HTML content from
+        ext_path  -- a Dashborg path to read the HTML content from
+        runtime   -- set to True to read the HTML from /@app:@html (runtime's html_handler)
+        stream    -- a stream (async or regular) to read the HTML from
+        watch     -- only valid with the file_name parameter.  if set, the HTML will be re-uploaded whenever a change is detected in the file.
+        """
         if watch and file_name is None:
             raise ValueError("set_html: can only set watch with a file_name")
         self._clear_html_opts()
