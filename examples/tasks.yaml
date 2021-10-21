@@ -1,6 +1,0 @@
----
-- name: Test 'ls' Command
-  cmd: ls -l > ls-log.log
-  external_logfile: ls-log.log
-  pidfile: ls-pidfile.pid
-  
