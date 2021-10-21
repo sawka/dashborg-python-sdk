@@ -32,6 +32,7 @@ from hashlib import sha256
 import jwt
 from . import dbu
 from .dbu import DashborgError
+from typing import Callable
 
 try:
     import dataclasses
@@ -192,7 +193,7 @@ class Config:
         jwtstr = jwt.encode(claims, private_key, algorithm="ES384")
         return jwtstr
 
-async def connect_client(config):
+async def connect_client(config: Config) -> Client:
     config._setup()
     client = Client(config)
     await client._connect_grpc()
@@ -215,7 +216,7 @@ class Client:
         self.acc_info = {}
         self.exit_err = None
 
-    def _get_acc_host(self):
+    def _get_acc_host(self) -> str:
         if not self.is_connected():
             raise NotConnectedErr
         cname = self.acc_info.get("acccname")
@@ -414,7 +415,7 @@ class Client:
         pass
             
 
-    def is_connected(self):
+    def is_connected(self) -> bool:
         if self.config is None:
             return False
         if self.exit_err is not None:
@@ -425,10 +426,10 @@ class Client:
             return False
         return True
 
-    def global_fs_client(self):
+    def global_fs_client(self) -> FSClient:
         return FSClient(self)
 
-    def app_client(self):
+    def app_client(self) -> AppClient:
         return AppClient(self)
 
     def _log_info(self, *args):
@@ -573,7 +574,7 @@ class Client:
         return self.exit_err
 
 class FileOpts:
-    def __init__(self, filetype=None, sha256=None, size=None, mimetype=None, allowedroles=["user"], editroles=None, display=None, metadata_json=None, metadata=None, description=None, mkdirs=False, hidden=False, appconfig=None):
+    def __init__(self, filetype: str = None, sha256: str = None, size: int = None, mimetype: str = None, allowedroles: list = ["user"], editroles: list = None, display: str = None, metadata_json: str = None, metadata=None, description: str = None, mkdirs: bool = False, hidden: bool = False, appconfig: str = None):
         self.filetype = filetype
         self.sha256 = sha256
         self.size = size
@@ -606,12 +607,12 @@ class FSClient:
         self.client = client
         self.root_path = root_path
         
-    async def set_raw_path(self, path, fileopts, stream=None, runtime=None):
+    async def set_raw_path(self, path: str, fileopts: FileOpts, stream=None, runtime=None):
         if path is None or path == "" or path[0] != '/':
             raise ValueError("Path must begin with '/'")
         await self.client._set_raw_path(self.root_path+path, fileopts, stream=stream, runtime=runtime)
 
-    async def set_json_path(self, path, data, fileopts=None, *, serializefn=None, jsondumps=None, raw_json=None, jsondumpskwargs=None):
+    async def set_json_path(self, path: str, data, fileopts: FileOpts = None, *, serializefn=None, jsondumps=None, raw_json=None, jsondumpskwargs=None):
         json_data = dbu.tojson(data, serializefn=serializefn, jsondumps=jsondumps, raw_json=raw_json, jsondumpskwargs=jsondumpskwargs)
         stream = io.StringIO(json_data)
         if fileopts is None:
@@ -622,7 +623,7 @@ class FSClient:
         fileopts.filetype = "static"
         await self.set_raw_path(path, fileopts, stream=stream)
 
-    async def set_static_path(self, path, *, fileopts=None, strval=None, bytesval=None, stream=None, file_name=None, watch=False):
+    async def set_static_path(self, path, fileopts: FileOpts, * strval: str = None, bytesval: bytes = None, stream=None, file_name: str = None, watch: bool = False):
         if watch and file_name is None:
             raise ValueError("set_static_path: can only set watch with a file_name")
         if file_name is not None:
@@ -644,11 +645,11 @@ class FSClient:
         await self.set_raw_path(path, fileopts, stream=stream)
         if watch:
             async def watch_callback():
-                await self.set_static_path(path, fileopts=fileopts, file_name=file_name)
+                await self.set_static_path(path, fileopts, file_name=file_name)
                 return
             watch_file(file_name, asyncio.get_running_loop(), watch_callback)
 
-    async def link_runtime(self, path, runtime, fileopts=None):
+    async def link_runtime(self, path: str, runtime, fileopts: FileOpts = None):
         if fileopts is None:
             fileopts = FileOpts()
         fileopts.filetype = "rt-link"
@@ -658,7 +659,7 @@ class FSClient:
             raise TypeError(f"Must pass a type LinkRuntime to link_runtime() type={type(runtime)}")
         await self.set_raw_path(path, fileopts, runtime=runtime)
 
-    async def link_app_runtime(self, path, runtime, fileopts=None):
+    async def link_app_runtime(self, path: str, runtime, fileopts: FileOpts = None):
         if fileopts is None:
             fileopts = FileOpts()
         fileopts.filetype = "rt-app-link"
@@ -668,7 +669,7 @@ class FSClient:
             raise TypeError(f"Must pass a type AppRuntime to link_app_runtime() type={type(runtime)}")
         await self.set_raw_path(path, fileopts, runtime=runtime)
 
-    def make_path_url(self, path, jwt_opts=None, no_jwt=False):
+    def make_path_url(self, path: str, jwt_opts: dict = None, no_jwt: bool = False):
         dbu.parse_full_path(self.root_path+path)
         path_link = self.client._get_acc_host() + "/@fs" + self.root_path + path
         if no_jwt:
@@ -676,7 +677,7 @@ class FSClient:
         jwt_token = self.client.config.make_account_jwt(jwt_opts)
         return f"{path_link}?jwt={jwt_token}"
 
-    async def file_info(self, path):
+    async def file_info(self, path: str):
         if path is None or path == "" or path[0] != "/":
             raise ValueError("file_info: Invalid Path, must begin with '/'")
         finfos = await self.client._file_info(self.root_path+path, None)
@@ -684,7 +685,7 @@ class FSClient:
             return None
         return finfos[0]
 
-    async def dir_info(self, path, role_list=["*"], show_hidden=False, recursive=False):
+    async def dir_info(self, path: str, role_list: list = ["*"], show_hidden: bool = False, recursive: bool = False):
         if path is None or path == "" or path[0] != "/":
             raise ValueError("file_info: Invalid Path, must begin with '/'")
         diropts = {
@@ -695,7 +696,7 @@ class FSClient:
         finfos = await self.client._file_info(self.root_path+path, diropts)
         return finfos
 
-    async def remove_path(self, path):
+    async def remove_path(self, path: str):
         if path is None or path == "" or path[0] != "/":
             raise ValueError("file_info: Invalid Path, must begin with '/'")
         await self.client._remove_path(fs.root_path+path)
@@ -707,13 +708,13 @@ class AppClient:
             raise TypeError("Invalid Client passed to AppClient")
         self.client = client
 
-    def new_app(self, app_name):
+    def new_app(self, app_name: str):
         return App(app_name, client=self.client)
 
-    def new_app_from_config(self, app_config):
+    def new_app_from_config(self, app_config: dict):
         return App(app_config["appname"], client=self.client, config=app_config)
 
-    async def load_app(self, app_name, create=False):
+    async def load_app(self, app_name: str, create: bool = False):
         app_path = app_path_from_name(app_name)
         finfo = await self.client.global_fs_client().file_info(app_path)
         if finfo is None:
@@ -723,7 +724,7 @@ class AppClient:
         app_config = json.loads(finfo.get("appconfig"))
         return self.new_app_from_config(app_config)
 
-    async def write_app(self, app, connect=False):
+    async def write_app(self, app: App, connect: bool = False):
         app_config = app.get_app_config()
         if connect and app.has_external_runtime():
             raise ValueError(f"App has an external runtime path '{app.get_runtime_path()}', cannot connect")
@@ -738,7 +739,7 @@ class AppClient:
         html_path = app_config.get("htmlpath")
         if (html_path is not None) and app._has_static_html():
             html_fileopts = FileOpts(mimetype="text/html", allowedroles=roles)
-            await fs.set_static_path(html_path, fileopts=html_fileopts, strval=app.html_str, file_name=app.html_file_name, stream=app.html_stream, watch=app.html_watch)
+            await fs.set_static_path(html_path, html_fileopts, strval=app.html_str, file_name=app.html_file_name, stream=app.html_stream, watch=app.html_watch)
         if connect:
             runtime_path = app_config.get("runtimepath")
             runtime_fileopts = FileOpts(allowedroles=roles)
@@ -747,7 +748,7 @@ class AppClient:
         app_link = self.make_app_url(app_name)
         print(f"Dashborg App Link [{app_name}]: {app_link}")
 
-    def make_app_url(self, app_name, jwt_opts=None, no_jwt=None):
+    def make_app_url(self, app_name: str, jwt_opts: dict = None, no_jwt: bool = None):
         if app_name is None or app_name == "":
             raise ValueError("app_name must be set / not empty")
         app_link = self.client._get_acc_host() + dbu.make_app_path(app_name, zone_name=self.client.config.zone_name)
@@ -758,7 +759,7 @@ class AppClient:
         jwt_token = self.client.config.make_account_jwt()
         return f"{app_link}?jwt={jwt_token}"
 
-    async def remove_app(self, app_name):
+    async def remove_app(self, app_name: str):
         app_path = app_path_from_name(app_name)
         await self.client._remove_path(app_path, remove_app=True)
     
@@ -857,7 +858,7 @@ class _BaseRuntime:
         hval = _HandlerVal(handler_name, handlerfn, opts)
         return hval
 
-    def handler(self, handler_name, handlerfn, opts=None, pure_handler=None, hidden=None, display=None):
+    def handler(self, handler_name: str, handlerfn: Callable, opts: HandlerOpts = None, pure_handler: bool = None, hidden: bool = None, display: str = None):
         hval = self._make_handlerval(handler_name, handlerfn, opts=opts, pure_handler=pure_handler, hidden=hidden, display=display)
         self.handlers[handler_name] = hval
 
@@ -886,13 +887,13 @@ class AppRuntime(_BaseRuntime):
         self.page_handlers = {}
         self.handler("@pageinit", self._page_init_handler, hidden=True, pure_handler=True)
 
-    def html_handler(self, handlerfn, **kwargs):
+    def html_handler(self, handlerfn: Callable, **kwargs):
         self.handler("@html", handlerfn, **kwargs)
 
-    def init_handler(self, handlerfn, **kwargs):
+    def init_handler(self, handlerfn: Callable, **kwargs):
         self.handler("@init", handlerfn, **kwargs)
 
-    def page_handler(self, page_name, handlerfn):
+    def page_handler(self, page_name: str, handlerfn: Callable):
         hval = self._make_handlerval(f"@pageinit-{page_name}", handlerfn)
         self.page_handlers[page_name] = hval
 
@@ -948,7 +949,7 @@ class AppRequest:
             self.data = json.loads(reqmsg.JsonData)
         self.json_opts = client.config.json_opts
 
-    def set_data(self, path, data):
+    def set_data(self, path: str, data):
         if not self.is_app_request:
             raise RuntimeError(f"Cannot call set_data, path={path}, in pure_handler (only for app requests)")
         if self.is_done:
@@ -962,16 +963,16 @@ class AppRequest:
         )
         self.rr_actions.append(rr)
 
-    def invalidate_data(self, path_regexp_str):
+    def invalidate_data(self, path_regexp_str: str):
         if self.is_done:
             raise RuntimeError(f"Cannot call invalidate_data(), path={path}, Request is already done")
         rr = dborgproto_pb2.RRAction(Ts=dbu.dashts(), ActionType="invalidate", Selector=path_regexp_str)
         self.rr_actions.append(rr)
 
-    def set_html_page(self, html_page):
+    def set_html_page(self, html_page: str):
         self.set_data("$state.dashborg.htmlpage", html_page)
 
-    def nav_to_page(self, page_naame, params=None):
+    def nav_to_page(self, page_name: str, params=None):
         rr = dborgproto_pb2.RRAction(
             Ts=dbu.dashts(),
             ActionType="navto",
@@ -1021,7 +1022,7 @@ def _make_response_msg(preq, rtnval, is_app_request):
         return msg
 
 class BlobReturn:
-    def __init__(self, mimetype, stream):
+    def __init__(self, mimetype: str, stream):
         if not mimetype or not isinstance(mimetype, str):
             raise TypeError("BlobReturn mimetype must be a str")
         if not dbu.is_mimetype_valid(mimetype):
@@ -1109,7 +1110,7 @@ class App:
         elif config_html_path != self.get_app_path() + "/_/html":
             self.html_ext_path = config_html_path
 
-    def get_app_config(self):
+    def get_app_config(self) -> dict:
         rtn = {
             "appname": self.app_name,
             "clientversion": CLIENT_VERSION,
@@ -1129,10 +1130,10 @@ class App:
             rtn["pagesenabled"] = True
         return rtn
 
-    def get_app_path(self):
+    def get_app_path(self) -> str:
         return f"/_/apps/{self.app_name}"
 
-    def get_html_path(self):
+    def get_html_path(self) -> str:
         if self.html_from_runtime:
             return self.get_runtime_path() + "/_/runtime:@html"
         if self.html_ext_path is not None:
@@ -1142,10 +1143,10 @@ class App:
     def _default_runtime_path(self):
         return self.get_app_path() + "/_/runtime"
 
-    def has_external_runtime(self):
+    def has_external_runtime(self) -> bool:
         return self.get_runtime_path() != self._default_runtime_path()
 
-    def get_runtime_path(self):
+    def get_runtime_path(self) -> str:
         if self.runtime_ext_path is not None:
             return self.runtime_ext_path
         return self.get_app_path() + "/_/runtime"
@@ -1158,34 +1159,34 @@ class App:
         self.html_ext_path = None
         self.html_stream = None
 
-    def set_init_required(self, init_required):
+    def set_init_required(self, init_required: bool):
         """If True, loading the app will call the init handler.  
         An error returned from the init handler will cause the app to not load. 
         If init_required is set, your app will not be available offline
         """
         self.init_required = init_required
 
-    def set_pages_enabled(self, enabled):
+    def set_pages_enabled(self, enabled: bool):
         """Set to True to enable app paging"""
         self.pages_enabled = enabled
 
-    def set_allowed_roles(self, *roles):
+    def set_allowed_roles(self, *roles: str):
         """Sets allowed roles"""
         self.allowed_roles = roles
 
-    def set_app_title(self, title):
+    def set_app_title(self, title: str):
         """Sets app title"""
         self.app_title = title
 
-    def set_app_visibility(vis_type, vis_order=0.0):
+    def set_app_visibility(self, vis_type: str, vis_order: float = 0.0):
         """Sets app visibility.
         vis_type -- either "hidden", "default", or "visible". 
-        vis_order -- the order apps are shown.  negative values are okay.  0 is special and will always sort to the end.
+        vis_order -- the order apps are shown.  negative values are okay.  0/None is special and will always sort to the end.
         """
         self.app_vis_type = vis_type
         self.app_vis_order = vis_order
 
-    def set_html(self, *, html=None, file_name=None, ext_path=None, runtime=False, stream=None, watch=False):
+    def set_html(self, *, html: str = None, file_name: str = None, ext_path: str = None, runtime=False, stream=None, watch: bool = False):
         """Sets the app's HTML.  The HTML options are exclusive, only set one (except for watch).  HTML is not
         sent to the Dashborg server until write_app() is called
 
@@ -1219,7 +1220,7 @@ class App:
     def _has_static_html(self):
         return (self.html_str is not None) or (self.html_file_name is not None) or (self.html_stream is not None)
 
-    def app_fs_client(self):
+    def app_fs_client(self) -> FSClient:
         if not dbu.is_app_name_valid(self.app_name):
             raise ValueError(f"Invalid app_name '{self.app_name}'")
         return FSClient(self.client, root_path=self.get_app_path())

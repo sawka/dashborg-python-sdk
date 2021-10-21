@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="dashborg-python-sdk",
-    version="0.4.0.dev2",
+    version="0.4.0.dev3",
     author="Michael Sawka",
     author_email="mike@dashborg.net",
     description="Dashborg Python SDK",
