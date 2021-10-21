@@ -772,7 +772,7 @@ class _BaseRuntime:
             rtn.append(hinfo)
         return rtn
 
-    def set_handler(self, handler_name, handlerfn, opts=None, pure_handler=None, hidden=None, display=None):
+    def handler(self, handler_name, handlerfn, opts=None, pure_handler=None, hidden=None, display=None):
         if not callable(handlerfn):
             raise TypeError("handlerfn must be callable")
         if not dbu.is_path_frag_valid(handler_name):
@@ -790,44 +790,29 @@ class _BaseRuntime:
         hval = _HandlerVal(handler_name, handlerfn, opts)
         self.handlers[handler_name] = hval
 
+    async def run_handler(self, req):
+        (_, _, pathfrag) = dbu.parse_full_path(req.path)
+        if pathfrag is None:
+            pathfrag = "@default"
+        hval = self.handlers.get(pathfrag)
+        if hval is None:
+            raise DashborgError(f"No handler found for '{pathfrag}'", err_code="NOHANDLER")
+        if req.request_method == "GET" and not hval.pure_handler:
+            raise DashborgError(f"GET/data request to non-pure handler '{pathfrag}'")
+        hargs = _make_handler_args(hval.handlerfn, hval.get_handler_info(), req)
+        hrtn = hval.handlerfn(*hargs)
+        if inspect.iscoroutine(hrtn):
+            hrtn = await hrtn
+        return hrtn
+
 
 class LinkRuntime(_BaseRuntime):
     def __init__(self):
         super().__init__(is_app_runtime=False)
 
-    async def run_handler(self, req):
-        (_, _, pathfrag) = dbu.parse_full_path(req.path)
-        if pathfrag is None:
-            pathfrag = "@default"
-        hval = self.handlers.get(pathfrag)
-        if hval is None:
-            raise DashborgError(f"No handler found for '{pathfrag}'", err_code="NOHANDLER")
-        if req.request_method == "GET" and not hval.pure_handler:
-            raise DashborgError(f"GET/data request to non-pure handler '{pathfrag}'")
-        hrtn = hval.handlerfn(req)
-        if inspect.iscoroutine(hrtn):
-            hrtn = await hrtn
-        return hrtn
-
 class AppRuntime(_BaseRuntime):
     def __init__(self):
         super().__init__(is_app_runtime=True)
-
-    async def run_handler(self, req):
-        (_, _, pathfrag) = dbu.parse_full_path(req.path)
-        if pathfrag is None:
-            pathfrag = "@default"
-        hval = self.handlers.get(pathfrag)
-        if hval is None:
-            raise DashborgError(f"No handler found for '{pathfrag}'", err_code="NOHANDLER")
-        if req.request_method == "GET" and not hval.pure_handler:
-            raise DashborgError(f"GET/data request to non-pure handler '{pathfrag}'")
-        hrtn = hval.handlerfn(req)
-        if inspect.iscoroutine(hrtn):
-            hrtn = await hrtn
-        return hrtn
-
-
 
 
 # def test(fn):
@@ -1199,9 +1184,6 @@ def _make_handler_args(hfn, hinfo, req):
         args.append(req)
     if hinfo.get("appstateparam"):
         args.append(req.app_state)
-    sig = inspect.signature(hfn)
-    num_params = len(sig.parameters)
-    data_arg_num = 0
     data_array = []
     if req.data is None:
         data_array = []
@@ -1209,10 +1191,5 @@ def _make_handler_args(hfn, hinfo, req):
         data_array = req.data
     else:
         data_array = [req.data]
-    while len(args) < num_params:
-        if data_arg_num >= len(data_array):
-            args.append(None)
-            continue
-        args.append(data_array[data_arg_num])
-        data_arg_num += 1
+    args.extend(data_array)
     return args
