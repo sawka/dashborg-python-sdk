@@ -1,18 +1,19 @@
 # Dashborg Python SDK
 
-> :warning: **WARNING**: This version of the Python SDK is no longer supported by Dashborg Cloud.  A new, compatible SDK is in active development and will be released ASAP.
+Dashborg is a SDK that plugs directly into any backend service or script.  With a couple lines of code you can register any running function with the Dashborg service and then build secure, modern, interactive tools on top of those functions using a simple, JavaScript free, HTML template language.
 
-Dashborg is Frontend as a Service (FEaaS) built for backend and devops engineers to quickly create secure bite-sized internal tools, status pages, and reports.
+Dashborg saves you time by handling all of the tedious details of frontend app creation and deployment (hosting, end-to-end security, authentication, transport, UI libraries, JavaScript frameworks, CSS frameworks, etc.).
 
-Dashborg saves you time by handling all of the tedious details of frontend app creation and deployment (hosting, security, authentication, transport, UI libraries, JavaScript frameworks, CSS frameworks, etc.).
-
-**Static Apps** allow you to send HTML, data, images, and CSV files to the Dashborg Service from anywhere, including cron jobs and serverless functions (AWS Lambda or Google Cloud Functions).  Great for reports or showing the status of scripts or jobs that run on backend servers.
-
-**Connected Apps** allow you to connect any backend server to the Dashborg service (using an *outbound* connection).  Once connected, your backend can receive and respond to UI events (button clicks, form submissions, dropdown selections, etc.).  Connected apps are great for creating live status pages, admin tools, query interfaces, and configuration tools.
+Dashborg works great for debugging, introspecting the running state of servers, viewing/updating configuration values, bite-sized internal tools, status pages, and reports.
 
 Dashborg is easy to get started with.  You can have your first app deployed in 5-minutes (no account/registration required).  Free tier covers most simple use cases.
 
-Questions?  [Join the Dashborg Slack Channel](https://join.slack.com/t/dashborgworkspace/shared_invite/zt-uphltkhj-r6C62szzoYz7_IIsoJ8WPg)
+* Doc Site: https://docs.dashborg.net
+* SDK Reference: https://docs.dashborg.net/reference/python-reference/
+* Example Code: https://github.com/sawka/dashborg-examples (python directory)
+
+Questions? [Join the Dashborg Slack Channel](https://join.slack.com/t/dashborgworkspace/shared_invite/zt-uphltkhj-r6C62szzoYz7_IIsoJ8WPg)
+
 
 
 
