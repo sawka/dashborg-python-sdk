@@ -441,7 +441,7 @@ class Client:
         if self.config.use_logger:
             _dblogger.error(*args)
         else:
-            print(args)
+            print(*args)
 
     async def _set_raw_path(self, path, fileopts, stream=None, runtime=None):
         try:
@@ -759,8 +759,8 @@ class _HandlerVal:
 class _BaseRuntime:
     def __init__(self, is_app_runtime):
         self.handlers = {}
-        self.handlers["@typeinfo"] = _HandlerVal("@typeinfo", self._typeinfo_handler, HandlerOpts(pure_handler=True, hidden=True))
         self.is_app_runtime = is_app_runtime
+        self.handler("@typeinfo", self._typeinfo_handler, pure_handler=True, hidden=True)
         pass
 
     def _typeinfo_handler(self, req):
@@ -772,7 +772,7 @@ class _BaseRuntime:
             rtn.append(hinfo)
         return rtn
 
-    def handler(self, handler_name, handlerfn, opts=None, pure_handler=None, hidden=None, display=None):
+    def _make_handlerval(self, handler_name, handlerfn, opts=None, pure_handler=None, hidden=None, display=None):
         if not callable(handlerfn):
             raise TypeError("handlerfn must be callable")
         if not dbu.is_path_frag_valid(handler_name):
@@ -788,6 +788,10 @@ class _BaseRuntime:
         if display is not None:
             opts.display = display
         hval = _HandlerVal(handler_name, handlerfn, opts)
+        return hval
+
+    def handler(self, handler_name, handlerfn, opts=None, pure_handler=None, hidden=None, display=None):
+        hval = self._make_handlerval(handler_name, handlerfn, opts=opts, pure_handler=pure_handler, hidden=hidden, display=display)
         self.handlers[handler_name] = hval
 
     async def run_handler(self, req):
@@ -813,6 +817,28 @@ class LinkRuntime(_BaseRuntime):
 class AppRuntime(_BaseRuntime):
     def __init__(self):
         super().__init__(is_app_runtime=True)
+        self.page_handlers = {}
+        self.handler("@pageinit", self._page_init_handler, hidden=True, pure_handler=True)
+
+    def html_handler(self, handlerfn, **kwargs):
+        self.handler("@html", handlerfn, **kwargs)
+
+    def init_handler(self, handlerfn, **kwargs):
+        self.handler("@init", handlerfn, **kwargs)
+
+    def page_handler(self, page_name, handlerfn):
+        hval = self._make_handlerval(f"@pageinit-{page_name}", handlerfn)
+        self.page_handlers[page_name] = hval
+
+    async def _page_init_handler(self, req, page_name):
+        hval = self.page_handlers.get(page_name)
+        if hval is None:
+            return
+        hargs = _make_handler_args(hval.handlerfn, hval.get_handler_info(), req)
+        hrtn = hval.handlerfn(*hargs)
+        if inspect.iscoroutine(hrtn):
+            hrtn = await hrtn
+        return hrtn
 
 
 # def test(fn):
@@ -1052,8 +1078,11 @@ class App:
         self.html_ext_path = None
         self.html_stream = None
 
+    def set_init_required(self, init_required):
+        self.init_required = init_required
+
     def set_pages_enabled(self, enabled):
-        self.config["pagesenabled"] = enabled
+        self.pages_enabled = enabled
 
     def set_allowed_roles(self, *roles):
         self.config["allowedroles"] = roles
@@ -1150,6 +1179,8 @@ def _check_first_params(params, hinfo):
         return
     p = params[0]
     if p.name == "appstate" or p.name == "app_state":
+        if hinfo.get("pure"):
+            raise ValueError(f"Invalid handlerfn, 'pure' functions cannot accept an app_state parameter")
         params.pop(0)
         hinfo["appstateparam"] = True
         
@@ -1184,6 +1215,8 @@ def _make_handler_args(hfn, hinfo, req):
         args.append(req)
     if hinfo.get("appstateparam"):
         args.append(req.app_state)
+    sig = inspect.signature(hfn)
+    num_args = len(sig.parameters)
     data_array = []
     if req.data is None:
         data_array = []
@@ -1191,5 +1224,7 @@ def _make_handler_args(hfn, hinfo, req):
         data_array = req.data
     else:
         data_array = [req.data]
+    if len(args) + len(data_array) > num_args:
+        data_array = data_array[0:num_args-len(args)]
     args.extend(data_array)
     return args
