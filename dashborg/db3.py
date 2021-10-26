@@ -8,12 +8,10 @@ import socket
 import json
 import aiofiles
 import aiofiles.os as aioos
-import base64
 import datetime
 import logging
 import inspect
 import io
-import hashlib
 import functools
 import traceback
 import glob
@@ -21,17 +19,11 @@ import watchdog
 import aiohttp
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer as WatchdogObserver
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec as asymec
 from .dborgproto import dborgproto_pb2_grpc
 from .dborgproto import dborgproto_pb2
-from hashlib import sha256
-import jwt
 from . import dbu
 from .dbu import DashborgError
+from . import dbcrypto
 from typing import Callable
 
 try:
@@ -52,9 +44,6 @@ DASHBORG_CONSOLE_HOST = "console.dashborg.net"
 _DASHBORG_DEV_CONSOLE_HOST = "console.dashborg-dev.com:8080"
 CLIENT_VERSION = "python-0.4.0"
 USE_REQ_DEFAULT = object()
-DEFAULT_JWT_VALID_FOR_SEC = 24*60*60
-DEFAULT_JWT_ROLE = "user"
-DEFAULT_JWT_USER_ID = "jwt-user"
 DEFAULT_GRPC_TIMEOUT = 10.0
 
 EC_EOF = "EOF"
@@ -69,23 +58,7 @@ BLOB_READ_SIZE = 3 * 340 * 1024
 MAX_RRA_BLOB_SIZE = 3 * 1024 * 1024
 STREAM_BLOCKSIZE = 1000000
 
-DASHBORG_CERT = """
------BEGIN CERTIFICATE-----
-MIIBxDCCAUmgAwIBAgIFAv2DbD4wCgYIKoZIzj0EAwMwLzEtMCsGA1UEAxMkNWZk
-YWYxZDEtYjUyNC00MzYxLWFkY2ItMzI1ZDBlOGFiN2VlMB4XDTIwMDEwMTAwMDAw
-MFoXDTMwMDEwMTAwMDAwMFowLzEtMCsGA1UEAxMkNWZkYWYxZDEtYjUyNC00MzYx
-LWFkY2ItMzI1ZDBlOGFiN2VlMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEhsrFNs6I
-reL5fWAdQxzNrYRgJdf2zE2aeBj/o28mXR1iQRtAlBY9Jh9zQtZCnypK2MprKvqw
-07f0YoquV17gOhumj7LIRhlZ9GANwra6VorRVtVVgKCpTmG8o/ulJ3o4ozUwMzAO
-BgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwIwDAYDVR0TAQH/BAIw
-ADAKBggqhkjOPQQDAwNpADBmAjEAtW26nW+AHoa9VQiqmGJ8z/+265YUK6QkkQ+T
-276zLFAdfAO+bOVK0MMjzr21v6aLAjEA6LknqHnEh+QDWWIm8vM1Jp/FtiJ0KT//
-4qUptLIY0pSijwpt/TAZd4QG8M5IQ+T7
------END CERTIFICATE-----
-"""
-
 _dblogger = logging.getLogger("dashborg")
-_default_jwt_opts = {"valid_for_sec": DEFAULT_JWT_VALID_FOR_SEC, "role": DEFAULT_JWT_ROLE, "user_id": DEFAULT_JWT_USER_ID}
 
 class Config:
     def __init__(self, acc_id=None, anon_acc=None, zone_name=None, proc_name=None, proc_ikey=None, proc_tags=None, key_file_name=None, cert_file_name=None, auto_keygen=None, verbose=None, env=None, console_host=None, grpc_host=None, grpc_port=None, use_logger=False, allow_backend_calls=False, jwt_opts=None, no_jwt=False):
@@ -141,7 +114,7 @@ class Config:
         if os.environ.get("DASHBORG_USELOGGER") is not None:
             self.use_logger = True
         if self.jwt_opts is None:
-            self.jwt_opts = _default_jwt_opts
+            self.jwt_opts = {}
 
     def _load_keys(self):
         if self.auto_keygen:
@@ -150,7 +123,7 @@ class Config:
             raise RuntimeError(f"Dashborg key file does not exist file:{self.key_file_name}")
         if not os.path.isfile(self.cert_file_name):
             raise RuntimeError(f"Dashborg cert file does not exist file:{self.cert_file_name}")
-        cert_info = dbu.read_cert_info(self.cert_file_name)
+        cert_info = dbcrypto.read_cert_info(self.cert_file_name)
         if self.acc_id is not None and cert_info["acc_id"] != self.acc_id:
             raise RuntimeError(f"Dashborg AccId read from certificate:{cert_info['acc_id']} does not match AccId in config:{self.acc_id}")
         self.acc_id = cert_info["acc_id"]
@@ -169,31 +142,16 @@ class Config:
         acc_id = self.acc_id
         if acc_id is None:
             acc_id = str(uuid.uuid4())
-        _create_key_pair(self.key_file_name, self.cert_file_name, acc_id)
+        dbcrypto.create_key_pair(self.key_file_name, self.cert_file_name, acc_id)
         print(f"Dashborg created new self-signed keypair key:{self.key_file_name} cert:{self.cert_file_name} for new accountid:{acc_id}")
 
     def make_account_jwt(self, jwt_opts=None):
         self._setup()
         if jwt_opts is None:
             jwt_opts = self.jwt_opts
-        pk_bytes = open(self.key_file_name, "rb").read()
-        private_key = serialization.load_pem_private_key(pk_bytes, None, default_backend())
-        claims = {}
-        valid_for_sec = self.jwt_opts.get("valid_for_sec") or DEFAULT_JWT_VALID_FOR_SEC
-        jwt_role = self.jwt_opts.get("role") or DEFAULT_JWT_ROLE
-        jwt_user_id = self.jwt_opts.get("user_id") or DEFAULT_JWT_USER_ID
-        claims["iss"] = "dashborg"
-        claims["exp"] = int(time.time()) + valid_for_sec
-        claims["iat"] = int(time.time()) - 5
-        claims["jti"] = str(uuid.uuid4())
-        claims["dash-acc"] = self.acc_id
-        claims["aud"] = "dashborg-auth"
-        claims["sub"] = jwt_user_id
-        claims["role"] = jwt_role
-        jwtstr = jwt.encode(claims, private_key, algorithm="ES384")
-        return jwtstr
+        return dbcrypto.make_account_jwt(self.key_file_name, self.acc_id, jwt_opts)
 
-async def connect_client(config: Config) -> Client:
+async def connect_client(config: Config) -> 'Client':
     config._setup()
     client = Client(config)
     await client._connect_grpc()
@@ -238,7 +196,7 @@ class Client:
         # todo connect params
         private_key = open(self.config.key_file_name, "rb").read()
         cert = open(self.config.cert_file_name, "rb").read()
-        servercert = bytes(DASHBORG_CERT, "utf-8")
+        servercert = bytes(dbcrypto.DASHBORG_CERT, "utf-8")
         creds = grpc.ssl_channel_credentials(root_certificates=servercert, private_key=private_key, certificate_chain=cert)
         options = (("grpc.ssl_target_name_override", "5fdaf1d1-b524-4361-adcb-325d0e8ab7ee"),
                    ("grpc.keepalive_time_ms", 5000),
@@ -426,10 +384,10 @@ class Client:
             return False
         return True
 
-    def global_fs_client(self) -> FSClient:
+    def global_fs_client(self) -> 'FSClient':
         return FSClient(self)
 
-    def app_client(self) -> AppClient:
+    def app_client(self) -> 'AppClient':
         return AppClient(self)
 
     def _log_info(self, *args):
@@ -623,7 +581,7 @@ class FSClient:
         fileopts.filetype = "static"
         await self.set_raw_path(path, fileopts, stream=stream)
 
-    async def set_static_path(self, path, fileopts: FileOpts, * strval: str = None, bytesval: bytes = None, stream=None, file_name: str = None, watch: bool = False):
+    async def set_static_path(self, path, fileopts: FileOpts, *, strval: str = None, bytesval: bytes = None, stream=None, file_name: str = None, watch: bool = False):
         if watch and file_name is None:
             raise ValueError("set_static_path: can only set watch with a file_name")
         if file_name is not None:
@@ -703,7 +661,7 @@ class FSClient:
     
 
 class AppClient:
-    def __init__(self, client):
+    def __init__(self, client: Client):
         if not isinstance(client, Client):
             raise TypeError("Invalid Client passed to AppClient")
         self.client = client
@@ -724,7 +682,7 @@ class AppClient:
         app_config = json.loads(finfo.get("appconfig"))
         return self.new_app_from_config(app_config)
 
-    async def write_app(self, app: App, connect: bool = False):
+    async def write_app(self, app: 'App', connect: bool = False):
         app_config = app.get_app_config()
         if connect and app.has_external_runtime():
             raise ValueError(f"App has an external runtime path '{app.get_runtime_path()}', cannot connect")
@@ -769,26 +727,11 @@ async def update_fileopts_from_stream(stream, fileopts):
         raise ValueError("FileOpts must be passed to update_fileopts_from_stream (set at least mimetype)")
     if not callable(getattr(stream, "seekable", None)) or not stream.seekable():
         raise ValueError("Stream must be seekable to set sha256 hash in FileOpts")
-    await _async_eval(stream.seek(0, 0))
-    sha = hashlib.sha256()
-    size = 0
-    while True:
-        result = stream.read(STREAM_BLOCKSIZE)
-        buf = await _async_eval(result)
-        if len(buf) == 0:
-            break
-        if isinstance(buf, str):
-            encoded_buf = buf.encode('utf-8')
-            size += len(encoded_buf)
-            sha.update(encoded_buf)
-        elif isinstance(buf, bytes):
-            sha.update(buf)
-            size += len(buf)
-        else:
-            raise ValueError("Stream must produce either str or bytes when calling read()")
-    await _async_eval(stream.seek(0, 0))
+    await dbu.async_eval(stream.seek(0, 0))
+    sha_val, size = await dbcrypto.compute_sha256_stream(stream)
+    await dbu.async_eval(stream.seek(0, 0))
     fileopts.filetype = "static"
-    fileopts.sha256 = base64.b64encode(sha.digest()).decode('utf-8')
+    fileopts.sha256 = sha_val
     fileopts.size = size
 
 class _HandlerVal:
@@ -840,7 +783,7 @@ class _BaseRuntime:
             rtn.append(hinfo)
         return rtn
 
-    def _make_handlerval(self, handler_name, handlerfn, opts=None, pure_handler=None, hidden=None, display=None):
+    def _make_handlerval(self, handler_name, handlerfn, opts: 'HandlerOpts' = None, pure_handler: bool = None, hidden: bool = None, display: str = None):
         if not callable(handlerfn):
             raise TypeError("handlerfn must be callable")
         if not dbu.is_path_frag_valid(handler_name):
@@ -858,7 +801,7 @@ class _BaseRuntime:
         hval = _HandlerVal(handler_name, handlerfn, opts)
         return hval
 
-    def handler(self, handler_name: str, handlerfn: Callable, opts: HandlerOpts = None, pure_handler: bool = None, hidden: bool = None, display: str = None):
+    def handler(self, handler_name: str, handlerfn: Callable, opts: 'HandlerOpts' = None, pure_handler: bool = None, hidden: bool = None, display: str = None):
         hval = self._make_handlerval(handler_name, handlerfn, opts=opts, pure_handler=pure_handler, hidden=hidden, display=display)
         self.handlers[handler_name] = hval
 
@@ -873,7 +816,7 @@ class _BaseRuntime:
             raise DashborgError(f"GET/data request to non-pure handler '{pathfrag}'")
         hargs = _make_handler_args(hval.handlerfn, hval.get_handler_info(), req)
         hrtn = hval.handlerfn(*hargs)
-        hrtn = await _async_eval(hrtn)
+        hrtn = await dbu.async_eval(hrtn)
         return hrtn
 
 
@@ -903,7 +846,7 @@ class AppRuntime(_BaseRuntime):
             return
         hargs = _make_handler_args(hval.handlerfn, hval.get_handler_info(), req)
         hrtn = hval.handlerfn(*hargs)
-        hrtn = await _async_eval(hrtn)
+        hrtn = await dbu.async_eval(hrtn)
         return hrtn
 
 
@@ -1220,7 +1163,7 @@ class App:
     def _has_static_html(self):
         return (self.html_str is not None) or (self.html_file_name is not None) or (self.html_stream is not None)
 
-    def app_fs_client(self) -> FSClient:
+    def app_fs_client(self) -> 'FSClient':
         if not dbu.is_app_name_valid(self.app_name):
             raise ValueError(f"Invalid app_name '{self.app_name}'")
         return FSClient(self.client, root_path=self.get_app_path())
@@ -1338,7 +1281,3 @@ def _make_handler_args(hfn, hinfo, req):
 def app_path_from_name(app_name):
     return f"/_/apps/{app_name}"
 
-async def _async_eval(v):
-    if inspect.isawaitable(v):
-        return await v
-    return v

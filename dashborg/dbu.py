@@ -6,14 +6,8 @@ import uuid
 import io
 import datetime
 import re
+import inspect
 from functools import reduce
-from hashlib import sha256
-import base64
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec as asymec
 
 try:
     import dataclasses
@@ -29,18 +23,6 @@ def default_string(*args):
         if s is not None and s != "":
             return s
     return None
-
-def read_cert_info(cert_file):
-    cert_data = open(cert_file, "rb").read()
-    cert = x509.load_pem_x509_certificate(cert_data, default_backend())
-    subject = cert.subject
-    cns = subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
-    acc_id = cns[0].value
-    pk = cert.public_key()
-    pkbytes = pk.public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
-    pkdigest = sha256(pkbytes)
-    pk256_base64 = base64.standard_b64encode(pkdigest.digest()).decode("ascii")
-    return {"acc_id": acc_id, "pk256": pk256_base64, "pubkey": pk}
 
 class DashborgError(Exception):
     def __init__(self, msg, err_code=None, perm_err=False, err=None):
@@ -234,3 +216,8 @@ def recursive_get(rootdict, *keys):
     if rootdict is None:
         return None
     return reduce(lambda d, key: d.get(key, {}), keys, rootdict)
+
+async def async_eval(v):
+    if inspect.isawaitable(v):
+        return await v
+    return v
