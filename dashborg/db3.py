@@ -17,6 +17,7 @@ import traceback
 import glob
 import watchdog
 import aiohttp
+import ssl
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer as WatchdogObserver
 from .dborgproto import dborgproto_pb2_grpc
@@ -196,10 +197,10 @@ class Client:
         # todo connect params
         private_key = open(self.config.key_file_name, "rb").read()
         cert = open(self.config.cert_file_name, "rb").read()
-        servercert = bytes(dbcrypto.DASHBORG_CERT, "utf-8")
-        creds = grpc.ssl_channel_credentials(root_certificates=servercert, private_key=private_key, certificate_chain=cert)
-        options = (("grpc.ssl_target_name_override", "5fdaf1d1-b524-4361-adcb-325d0e8ab7ee"),
-                   ("grpc.keepalive_time_ms", 5000),
+        ssl_vpaths = ssl.get_default_verify_paths()
+        root_certs = open(ssl_vpaths.cafile, "rb").read()
+        creds = grpc.ssl_channel_credentials(root_certificates=root_certs, private_key=private_key, certificate_chain=cert)
+        options = (("grpc.keepalive_time_ms", 5000),
                    ("grpc.keepalive_timeout_ms", 5000),
                    ("grpc.keepalive_permit_without_calls", True),
                    ("grpc.max_reconnect_backoff_ms", 60000),

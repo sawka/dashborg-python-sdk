@@ -17,19 +17,9 @@ DEFAULT_JWT_ROLE = "user"
 DEFAULT_JWT_USER_ID = "jwt-user"
 _default_jwt_opts = {"valid_for_sec": DEFAULT_JWT_VALID_FOR_SEC, "role": DEFAULT_JWT_ROLE, "user_id": DEFAULT_JWT_USER_ID}
 
-DASHBORG_CERT = """
------BEGIN CERTIFICATE-----
-MIIBxDCCAUmgAwIBAgIFAv2DbD4wCgYIKoZIzj0EAwMwLzEtMCsGA1UEAxMkNWZk
-YWYxZDEtYjUyNC00MzYxLWFkY2ItMzI1ZDBlOGFiN2VlMB4XDTIwMDEwMTAwMDAw
-MFoXDTMwMDEwMTAwMDAwMFowLzEtMCsGA1UEAxMkNWZkYWYxZDEtYjUyNC00MzYx
-LWFkY2ItMzI1ZDBlOGFiN2VlMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEhsrFNs6I
-reL5fWAdQxzNrYRgJdf2zE2aeBj/o28mXR1iQRtAlBY9Jh9zQtZCnypK2MprKvqw
-07f0YoquV17gOhumj7LIRhlZ9GANwra6VorRVtVVgKCpTmG8o/ulJ3o4ozUwMzAO
-BgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwIwDAYDVR0TAQH/BAIw
-ADAKBggqhkjOPQQDAwNpADBmAjEAtW26nW+AHoa9VQiqmGJ8z/+265YUK6QkkQ+T
-276zLFAdfAO+bOVK0MMjzr21v6aLAjEA6LknqHnEh+QDWWIm8vM1Jp/FtiJ0KT//
-4qUptLIY0pSijwpt/TAZd4QG8M5IQ+T7
------END CERTIFICATE-----
+EC_PARAMS = """-----BEGIN EC PARAMETERS-----
+BgUrgQQAIg==
+-----END EC PARAMETERS-----
 """
 
 def make_account_jwt(key_file_name, acc_id, jwt_opts=None):
@@ -60,9 +50,7 @@ def create_key_pair(keyfile, certfile, acc_id):
                                               format=serialization.PrivateFormat.PKCS8,
                                               encryption_algorithm=serialization.NoEncryption())
     with open(keyfile, "wb") as f:
-        f.write(bytes("-----BEGIN EC PARAMETERS-----\n"
-                      "BgUrgQQAIg==\n"
-                      "-----END EC PARAMETERS-----\n", "utf-8"))
+        f.write(bytes(EC_PARAMS, "utf-8"))
         f.write(private_bytes)
     cert_name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, acc_id)])
     builder = x509.CertificateBuilder()
